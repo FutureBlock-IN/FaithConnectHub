@@ -1,0 +1,12 @@
+{
+  "name": "FaithConnectHub",
+  "short_name": "FCH",
+  "start_url": "/",
+  "icons": [
+    { "src": "/images/logo.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/images/logo.png", "type": "image/png", "sizes": "512x512" }
+  ],
+  "theme_color": "#f8f3fb",
+  "background_color": "#f8f3fb",
+  "display": "standalone"
+}
