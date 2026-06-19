@@ -30,11 +30,11 @@ export default function AdminLayout({
             </Link>
             <div className="flex items-center gap-3">
               <Image
-                src="/images/logo.png"
+                src={siteConfig.image}
                 alt={siteConfig.name}
-                width={32}
-                height={32}
-                className="rounded-full object-cover"
+                width={120}
+                height={36}
+                className="h-8 w-auto object-contain"
               />
               <div className="hidden xl:flex xl:flex-col">
                 <span className="font-heading text-base font-semibold">

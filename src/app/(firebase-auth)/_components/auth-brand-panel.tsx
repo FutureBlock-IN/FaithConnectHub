@@ -13,9 +13,9 @@ export function AuthBrandPanel() {
         <Image
           src={siteConfig.image}
           alt={siteConfig.name}
-          width={200}
-          height={200}
-          className="rounded-3xl object-contain shadow-2xl"
+          width={240}
+          height={240}
+          className="h-auto w-full max-w-[220px] object-contain drop-shadow-2xl"
           priority
         />
 
@@ -58,18 +58,15 @@ export function AuthBrandPanel() {
 
 export function AuthLogo() {
   return (
-    <Link href="/" className="flex items-center gap-2 font-medium text-white">
-      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary">
-        <Image
-          src={siteConfig.image}
-          alt={siteConfig.name}
-          width={32}
-          height={32}
-          className="size-full object-contain"
-          priority
-        />
-      </div>
-      <span className="font-heading text-sm">{siteConfig.name}</span>
+    <Link href="/" className="flex items-center">
+      <Image
+        src={siteConfig.image}
+        alt={siteConfig.name}
+        width={140}
+        height={40}
+        className="h-8 w-auto object-contain"
+        priority
+      />
     </Link>
   );
 }

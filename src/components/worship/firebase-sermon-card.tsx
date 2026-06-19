@@ -1,3 +1,5 @@
+import React from "react";
+
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 import { ImageWithFallback } from "@/components/image-with-fallback";
@@ -11,7 +13,7 @@ type FirebaseSermonCardProps = {
   className?: string;
 };
 
-export function FirebaseSermonCard({
+export const FirebaseSermonCard = React.memo(function FirebaseSermonCard({
   sermon,
   className,
 }: FirebaseSermonCardProps) {
@@ -77,4 +79,4 @@ export function FirebaseSermonCard({
       </div>
     </ProtectedContentLink>
   );
-}
+});

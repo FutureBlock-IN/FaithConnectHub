@@ -13,12 +13,11 @@ const NotFound = () => {
   return (
     <section className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <Image
-        src="/images/logo.png"
-        alt="Page Not Found"
-        width={60}
-        height={60}
-        
-        className="mb-6 rounded-full"
+        src={siteConfig.image}
+        alt={siteConfig.name}
+        width={180}
+        height={54}
+        className="mb-6 h-auto w-[160px] object-contain sm:w-[180px]"
       />
 
       <h1 className="mb-3 text-4xl font-bold">

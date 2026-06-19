@@ -13,18 +13,27 @@ import { toast } from "sonner";
 
 type ShareSongButtonProps = {
   songTitle: string;
+  /** Optional alternate title (e.g. translation or native-language title) */
+  alternateTitle?: string;
+  /** @deprecated use alternateTitle */
   teluguTitle?: string;
   songId: string;
 };
 
-export function ShareSongButton({ songTitle, teluguTitle, songId }: ShareSongButtonProps) {
+export function ShareSongButton({
+  songTitle,
+  alternateTitle,
+  teluguTitle,
+  songId,
+}: ShareSongButtonProps) {
+  const subtitle = alternateTitle ?? teluguTitle;
   const [copied, setCopied] = useState(false);
   const [hasNativeShare, setHasNativeShare] = useState(false);
 
   const songUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/songs/${encodeURIComponent(songId)}`;
 
-  const shareText = teluguTitle
-    ? `🎵 ${songTitle}\n${teluguTitle}\n\n${songUrl}`
+  const shareText = subtitle
+    ? `🎵 ${songTitle}\n${subtitle}\n\n${songUrl}`
     : `🎵 ${songTitle}\n\n${songUrl}`;
 
   useEffect(() => {
@@ -35,7 +44,7 @@ export function ShareSongButton({ songTitle, teluguTitle, songId }: ShareSongBut
     try {
       await navigator.share({
         title: songTitle,
-        text: teluguTitle ? `${songTitle} - ${teluguTitle}` : songTitle,
+        text: subtitle ? `${songTitle} - ${subtitle}` : songTitle,
         url: songUrl,
       });
     } catch {

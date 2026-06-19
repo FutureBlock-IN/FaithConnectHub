@@ -54,10 +54,13 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<FirebaseNotification[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
+
+    setLoading(true);
     const unsubscribeNotifications = subscribeToNotifications(
       (items) => {
         setNotifications(items);
@@ -72,7 +75,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
       unsubscribeNotifications();
       unsubscribeReads();
     };
-  }, [userId]);
+  }, [open, userId]);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !readIds.has(notification.id)).length,

@@ -8,6 +8,7 @@ import type { FirebaseSong } from "@/types/firebase-song";
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { searchSongs } from "@/lib/firebase-queries";
+import { getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 import { DEFAULT_SONG_COVER } from "@/config/site";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 
@@ -58,8 +59,8 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
       {/* Scrollable results container — VERTICAL LIST */}
       <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-2 w-full">
         {songs.map((song) => {
-          const englishTitle = song.englishTitle ?? song.title ?? "";
-          const teluguTitle = song.teluguTitle ?? "";
+          const displayTitle = getSongDisplayTitle(song);
+          const alternateTitle = getSongAlternateTitle(song);
           const songHref = `/songs/${encodeURIComponent(song.id)}`;
           const coverUrl = getSongCoverUrl(song.imageUrl);
 
@@ -80,7 +81,7 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
                   width={80}
                   height={80}
                   sizes="80px"
-                  alt={englishTitle}
+                  alt={displayTitle}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
 
@@ -111,15 +112,14 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
               <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
                 {/* English title — primary */}
                 <h3 className="line-clamp-2 text-sm font-bold leading-tight text-foreground transition-colors duration-200 group-hover:text-primary">
-                  {englishTitle}
+                  {displayTitle}
                 </h3>
 
-                {/* Telugu title — secondary */}
-                {teluguTitle && (
+                {alternateTitle ? (
                   <p className="line-clamp-1 text-xs leading-tight text-muted-foreground">
-                    {teluguTitle}
+                    {alternateTitle}
                   </p>
-                )}
+                ) : null}
               </div>
 
               {/* Right arrow — indicator */}

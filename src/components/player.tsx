@@ -36,6 +36,10 @@ import {
   getImageSrc,
   hasPlayableAudio,
 } from "@/lib/utils";
+import {
+  registerPlaybackBridge,
+  setPlaybackPlaying,
+} from "@/lib/playback-bridge";
 import { Icons } from "./icons";
 import { ImageWithFallback } from "./image-with-fallback";
 import { Queue } from "./queue";
@@ -112,6 +116,22 @@ function PlayerControls({ user, playlists }: PlayerProps) {
     seek,
     isReady,
   } = useGlobalAudioPlayer();
+
+  React.useEffect(() => {
+    return registerPlaybackBridge({
+      toggle: () => {
+        if (isPlayerInit) {
+          togglePlayPause();
+        } else {
+          setIsPlayerInit(true);
+        }
+      },
+    });
+  }, [isPlayerInit, setIsPlayerInit, togglePlayPause]);
+
+  React.useEffect(() => {
+    setPlaybackPlaying(playing);
+  }, [playing]);
 
   // Memoize audio load effect to prevent unnecessary reloads
   React.useEffect(() => {

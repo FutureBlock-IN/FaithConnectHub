@@ -13,23 +13,32 @@ const DIVIDER = "====================================";
 
 export type LyricsTxtOptions = {
   title: string;
-  teluguLyrics: string;
-  englishLyrics: string;
+  originalLyrics: string;
+  translationLyrics: string;
+  /** @deprecated use originalLyrics */
+  teluguLyrics?: string;
+  /** @deprecated use translationLyrics */
+  englishLyrics?: string;
 };
 
 export function generateLyricsTxt({
   title,
+  originalLyrics,
+  translationLyrics,
   teluguLyrics,
   englishLyrics,
 }: LyricsTxtOptions): Blob {
+  const original = originalLyrics || teluguLyrics || "";
+  const translation = translationLyrics || englishLyrics || "";
+
   const parts: string[] = [`Song Title: ${title}`, "", DIVIDER, ""];
 
-  if (teluguLyrics.trim().length > 0) {
-    parts.push("TELUGU LYRICS", "", teluguLyrics, "", DIVIDER, "");
+  if (original.trim().length > 0) {
+    parts.push("ORIGINAL LYRICS", "", original, "", DIVIDER, "");
   }
 
-  if (englishLyrics.trim().length > 0) {
-    parts.push("ENGLISH LYRICS", "", englishLyrics, "", DIVIDER, "");
+  if (translation.trim().length > 0) {
+    parts.push("TRANSLATION LYRICS", "", translation, "", DIVIDER, "");
   }
 
   const content = parts.join("\n");

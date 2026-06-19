@@ -23,17 +23,14 @@ export default function AboutPage() {
         </div>
 
         <div className="relative z-10 flex flex-col items-center gap-5">
-          {/* Logo with golden ring */}
-          <div className="rounded-full p-1 ring-2 ring-primary/40 shadow-lg">
-            <ImageWithFallback
-              src={siteConfig.image || "/images/logo.png"}
-              fallback="/images/logo.png"
-              alt={siteConfig.name}
-              width={96}
-              height={96}
-              className="h-20 w-20 rounded-full object-contain sm:h-24 sm:w-24"
-            />
-          </div>
+          <ImageWithFallback
+            src={siteConfig.image}
+            fallback="/images/logo.png"
+            alt={siteConfig.name}
+            width={280}
+            height={84}
+            className="h-auto w-[220px] object-contain sm:w-[280px]"
+          />
 
           <div className="space-y-3 max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/70">

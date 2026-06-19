@@ -1,21 +1,36 @@
-import { getPublishedArticles } from "@/lib/firebase-article-queries";
-import { getPublishedSermons } from "@/lib/firebase-sermon-queries";
-import { getAllSongs } from "@/lib/firebase-queries";
+import { getWorshipCatalogCached } from "@/lib/cached-worship-data";
+
+import { WorshipCatalogProvider } from "@/context/worship-catalog-context";
+
+
 
 import { WorshipTopItemsClient } from "./firebase-worship-top-items";
 
+
+
 export async function FirebaseWorshipTopItems() {
-  const [songs, sermons, articles] = await Promise.all([
-    getAllSongs(),
-    getPublishedSermons(),
-    getPublishedArticles(),
-  ]);
+
+  const catalog = await getWorshipCatalogCached();
+
+
 
   return (
-    <WorshipTopItemsClient
-      songs={songs.slice(0, 12)}
-      sermons={sermons.slice(0, 12)}
-      articles={articles.slice(0, 12)}
-    />
+
+    <WorshipCatalogProvider catalog={catalog}>
+
+      <WorshipTopItemsClient
+
+        songs={catalog.songs.slice(0, 12)}
+
+        sermons={catalog.sermons.slice(0, 12)}
+
+        articles={catalog.articles.slice(0, 12)}
+
+      />
+
+    </WorshipCatalogProvider>
+
   );
+
 }
+

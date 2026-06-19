@@ -8,10 +8,13 @@ import {
   getArticleNeighbors,
   getRelatedArticles,
 } from "@/lib/article-utils";
-import { getArticleById, getPublishedArticles } from "@/lib/firebase-article-queries";
+import {
+  getArticleByIdCached,
+  getPublishedArticlesCached,
+} from "@/lib/cached-worship-data";
 import { getSongCoverUrl } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 type ArticlePageProps = {
   params: Promise<{ id: string }>;
@@ -19,7 +22,7 @@ type ArticlePageProps = {
 
 export async function generateMetadata({ params }: ArticlePageProps) {
   const { id } = await params;
-  const article = await getArticleById(decodeURIComponent(id));
+  const article = await getArticleByIdCached(decodeURIComponent(id));
 
   if (!article || !article.isPublished) {
     return { title: "Article Not Found" };
@@ -51,8 +54,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   }
 
   const [article, allPublished] = await Promise.all([
-    getArticleById(decodedId),
-    getPublishedArticles(),
+    getArticleByIdCached(decodedId),
+    getPublishedArticlesCached(),
   ]);
 
   if (!article || !article.isPublished) {
