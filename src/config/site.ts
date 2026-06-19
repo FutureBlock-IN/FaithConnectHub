@@ -5,6 +5,8 @@ export const siteConfig = {
   url: "https://faithconnecthub.com/",
   description: "Christian worship music, sermons, and articles for faith and praise.",
   image: "/images/logo.png",
+  icon: "/icon.png",
+  appleIcon: "/apple-icon.png",
 
   ministry: {
     title: "FaithConnectHub",

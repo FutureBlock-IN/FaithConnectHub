@@ -58,6 +58,14 @@ export function normalizeSermonFromFirestore(
   };
 }
 
+/** Strips sermon body for list/search payloads. */
+export function toSermonListItem(sermon: FirebaseSermon): FirebaseSermon {
+  return {
+    ...sermon,
+    content: "",
+  };
+}
+
 /** Legacy docs without the field were visible before the publish flag existed. */
 function resolveIsPublished(data: Record<string, unknown>): boolean {
   if (typeof data.isPublished === "boolean") return data.isPublished;

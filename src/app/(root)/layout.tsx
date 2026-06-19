@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Player } from "@/components/player";
+import { LazyPlayer } from "@/components/lazy-player";
 import { RootShell } from "@/components/root-shell";
 import { Navbar } from "@/components/site-header/navbar";
 
@@ -8,7 +8,7 @@ export default async function Layout({ children }: React.PropsWithChildren) {
   return (
     <React.Fragment>
       <Navbar />
-      <RootShell player={<Player />}>{children}</RootShell>
+      <RootShell player={<LazyPlayer />}>{children}</RootShell>
     </React.Fragment>
   );
 }

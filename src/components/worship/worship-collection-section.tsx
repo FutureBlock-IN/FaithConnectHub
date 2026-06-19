@@ -67,15 +67,21 @@ export function WorshipCollectionSection({
         </TabsList>
 
         <TabsContent value="songs" className="mt-5 focus-visible:outline-none">
-          <SongsTabContent initialSongs={songs} />
+          {activeTab === "songs" ? (
+            <SongsTabContent initialSongs={songs} />
+          ) : null}
         </TabsContent>
 
         <TabsContent value="sermons" className="mt-5 focus-visible:outline-none">
-          <SermonsTabContent initialSermons={sermons} />
+          {activeTab === "sermons" ? (
+            <SermonsTabContent initialSermons={sermons} />
+          ) : null}
         </TabsContent>
 
         <TabsContent value="articles" className="mt-5 focus-visible:outline-none">
-          <ArticlesTabContent initialArticles={articles} />
+          {activeTab === "articles" ? (
+            <ArticlesTabContent initialArticles={articles} />
+          ) : null}
         </TabsContent>
       </Tabs>
     </section>

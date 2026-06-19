@@ -1,9 +1,24 @@
-import { ChevronRight } from "lucide-react";
+"use client";
+
+import React from "react";
+import { Pause, Play } from "lucide-react";
+import { useSyncExternalStore } from "react";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import type { FirebaseSong } from "@/types/firebase-song";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { DEFAULT_SONG_COVER } from "@/config/site";
+import {
+  useCurrentSongIndex,
+  useIsPlayerInit,
+  useQueue,
+} from "@/hooks/use-store";
+import {
+  getPlaybackPlaying,
+  subscribePlaybackPlaying,
+  togglePlayback,
+} from "@/lib/playback-bridge";
+import { getSongArtistLine, getSongDisplayTitle } from "@/lib/song-firestore";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 
 type FirebaseSongCardProps = {
@@ -11,73 +26,158 @@ type FirebaseSongCardProps = {
   className?: string;
 };
 
-export function FirebaseSongCard({ song, className }: FirebaseSongCardProps) {
+function getSubtitleLine(artistLine?: string, category?: string): string | null {
+  const artist = artistLine?.trim();
+  if (artist) return artist;
+  const cat = category?.trim();
+  if (cat) return cat;
+  return null;
+}
+
+function SongCoverPlayControl({
+  song,
+  displayTitle,
+  artistLine,
+  coverUrl,
+}: {
+  song: FirebaseSong;
+  displayTitle: string;
+  artistLine?: string;
+  coverUrl: string;
+}) {
+  const [queue, setQueue] = useQueue();
+  const [currentIndex, setCurrentIndex] = useCurrentSongIndex();
+  const [, setIsPlayerInit] = useIsPlayerInit();
+  const playing = useSyncExternalStore(
+    subscribePlaybackPlaying,
+    getPlaybackPlaying,
+    () => false
+  );
+
+  const audioUrl = song.audioUrl?.trim() ?? "";
+  const songIndex = queue.findIndex((item) => item.id === song.id);
+  const isCurrentSong = songIndex === currentIndex && songIndex !== -1;
+  const isPlaying = isCurrentSong && playing;
+
+  if (!audioUrl) return null;
+
+  function handlePlayClick(event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (isCurrentSong) {
+      togglePlayback();
+      return;
+    }
+
+    setQueue([
+      {
+        id: song.id,
+        name: displayTitle,
+        subtitle: artistLine ?? "",
+        image: coverUrl,
+        duration: 0,
+        download_url: audioUrl,
+        url: `/songs/${encodeURIComponent(song.id)}`,
+        type: "song",
+        artists: [],
+      },
+    ]);
+    setCurrentIndex(0);
+    setIsPlayerInit(true);
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={isPlaying ? `Pause ${displayTitle}` : `Play ${displayTitle}`}
+      onClick={handlePlayClick}
+      className={cn(
+        "absolute bottom-2 right-2 z-20 flex h-10 w-10 items-center justify-center rounded-full",
+        "bg-primary text-primary-foreground shadow-lg shadow-black/50",
+        "translate-y-1 scale-90 opacity-0 transition-all duration-200 ease-out",
+        "group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100",
+        "group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100",
+        "hover:scale-105 active:scale-95",
+        "focus-visible:translate-y-0 focus-visible:scale-100 focus-visible:opacity-100",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        isPlaying && "translate-y-0 scale-100 opacity-100"
+      )}
+    >
+      {isPlaying ? (
+        <Pause className="h-4 w-4 fill-current" />
+      ) : (
+        <Play className="h-4 w-4 translate-x-0.5 fill-current" />
+      )}
+    </button>
+  );
+}
+
+export const FirebaseSongCard = React.memo(function FirebaseSongCard({
+  song,
+  className,
+}: FirebaseSongCardProps) {
   if (!song.id?.trim()) return null;
 
   const songHref = `/songs/${encodeURIComponent(song.id)}`;
   const coverUrl = getSongCoverUrl(song.imageUrl);
-  const englishTitle = song.englishTitle ?? song.title ?? "";
-  const teluguTitle = song.teluguTitle ?? "";
+  const displayTitle = getSongDisplayTitle(song);
+  const artistLine = getSongArtistLine(song);
+  const subtitleLine = getSubtitleLine(artistLine, song.category);
+  const linkLabel = artistLine
+    ? `${displayTitle} by ${artistLine}`
+    : displayTitle;
 
   return (
-    <ProtectedContentLink
-      href={songHref}
-      className={cn(
-        "group relative flex h-24 gap-2 rounded-lg border border-border/50 bg-card/40 transition-all duration-200",
-        "hover:border-border/80 hover:bg-card/60 hover:shadow-sm",
-        className
-      )}
-    >
-      <div className="relative h-full w-24 shrink-0 overflow-hidden rounded-md">
-        <ImageWithFallback
-          src={coverUrl}
-          fallback={DEFAULT_SONG_COVER}
-          width={96}
-          height={96}
-          sizes="96px"
-          alt={englishTitle}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+    <article className={cn("group flex w-full flex-col", className)}>
+      <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted/15">
+        <ProtectedContentLink
+          href={songHref}
+          aria-label={linkLabel}
+          className="block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <ImageWithFallback
+            src={coverUrl}
+            fallback={DEFAULT_SONG_COVER}
+            width={320}
+            height={320}
+            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
+            alt=""
+            aria-hidden
+            className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+          />
+        </ProtectedContentLink>
+
+        <SongCoverPlayControl
+          song={song}
+          displayTitle={displayTitle}
+          artistLine={artistLine}
+          coverUrl={coverUrl}
         />
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-md">
-            <svg
-              className="h-3.5 w-3.5 translate-x-0.5 text-primary"
-              fill="currentColor"
-              viewBox="0 0 16 16"
-            >
-              <path d="M3 2.5a.5.5 0 0 1 .765-.424l10 5.5a.5.5 0 0 1 0 .848l-10 5.5A.5.5 0 0 1 3 13.5v-11z" />
-            </svg>
-          </div>
-        </div>
-
-        {song.youtubeUrl?.trim() ? (
-          <span className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 rounded-full bg-red-600 px-1 py-0 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
-            <svg className="h-1.5 w-1.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-            </svg>
-            YT
-          </span>
-        ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 px-3 py-2">
-        <h3 className="line-clamp-2 text-sm font-bold leading-tight text-foreground transition-colors duration-200 group-hover:text-primary">
-          {englishTitle}
+      <ProtectedContentLink
+        href={songHref}
+        aria-label={`View ${linkLabel}`}
+        className={cn(
+          "mt-2.5 flex flex-col gap-0.5",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        )}
+      >
+        <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
+          {displayTitle}
         </h3>
 
-        {teluguTitle ? (
-          <p className="line-clamp-1 text-sm leading-tight text-muted-foreground">
-            {teluguTitle}
+        {subtitleLine ? (
+          <p className="line-clamp-2 text-sm font-normal leading-snug text-[#b3b3b3]">
+            {subtitleLine}
           </p>
         ) : null}
-      </div>
-
-      <div className="flex shrink-0 items-center justify-center pr-3 text-muted-foreground transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-primary">
-        <ChevronRight className="h-5 w-5" />
-      </div>
-    </ProtectedContentLink>
+      </ProtectedContentLink>
+    </article>
   );
-}
+});
+
+/** Spotify-style responsive album grid */
+export const songsAlbumGridClassName =
+  "grid w-full grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";

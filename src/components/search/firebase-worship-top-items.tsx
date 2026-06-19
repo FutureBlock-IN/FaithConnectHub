@@ -8,6 +8,8 @@ import type { FirebaseSong } from "@/types/firebase-song";
 
 import { useEffectiveWorshipCollectionTab } from "@/hooks/use-effective-worship-collection-tab";
 
+import { getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
+
 import { SearchResultRow } from "./search-result-row";
 
 type WorshipTopItemsClientProps = {
@@ -62,8 +64,8 @@ export function WorshipTopItemsClient({
             <SearchResultRow
               key={song.id}
               href={`/songs/${encodeURIComponent(song.id)}`}
-              title={song.englishTitle ?? song.title ?? ""}
-              subtitle={song.teluguTitle}
+              title={getSongDisplayTitle(song)}
+              subtitle={getSongAlternateTitle(song)}
               coverUrl={song.imageUrl}
             />
           ))}

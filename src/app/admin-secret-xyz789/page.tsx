@@ -9,6 +9,7 @@ import type { FirebaseSong } from "@/types/firebase-song";
 import { Button } from "@/components/ui/button";
 import { AddMusicModal } from "@/components/admin/add-music-modal";
 import { MusicList } from "@/components/admin/music-list";
+import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 
 export default function AdminPage() {
@@ -27,22 +28,9 @@ export default function AdminPage() {
       songsQuery,
       (snapshot) => {
         setSongs(
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            title: String(doc.data().title ?? ""),
-            lyrics: String(doc.data().lyrics ?? doc.data().teluguLyrics ?? ""),
-            transliteratedLyrics: String(
-              doc.data().transliteratedLyrics ?? doc.data().englishLyrics ?? ""
-            ),
-            imageUrl: String(doc.data().imageUrl ?? doc.data().coverImageUrl ?? "") || undefined,
-            audioUrl: String(doc.data().audioUrl ?? doc.data().audioFileUrl ?? "") || undefined,
-            createdAt:
-              typeof doc.data().createdAt === "object" &&
-              doc.data().createdAt !== null &&
-              typeof (doc.data().createdAt as { toMillis(): number }).toMillis === "function"
-                ? (doc.data().createdAt as { toMillis(): number }).toMillis()
-                : Date.now(),
-          }))
+          snapshot.docs.map((doc) =>
+            normalizeSongFromFirestore(doc.id, doc.data())
+          )
         );
         setLoading(false);
       },

@@ -23,6 +23,11 @@ import type {
 
 import { getAdminDb, isAdminConfigured } from "./firebase-admin";
 import { db } from "./firebase";
+import {
+  filterPublishedSongs,
+  normalizeSongFromFirestore,
+  toSongFirestorePayload,
+} from "./song-firestore";
 import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
 
 const SONGS_COLLECTION = "songs";
@@ -76,26 +81,7 @@ function toMillis(value: unknown): number {
 // }
 
 function normalizeSong(id: string, data: Record<string, unknown>): FirebaseSong {
-  const rawAudio = String(data.audioUrl ?? data.audioFileUrl ?? "").trim();
-  const rawImage = String(data.imageUrl ?? data.coverImageUrl ?? "").trim();
-  const rawYoutube = String(data.youtubeUrl ?? data.videoUrl ?? "").trim();
- 
-  const englishTitle = String(data.englishTitle ?? "").trim() || undefined;
-  const teluguTitle = String(data.teluguTitle ?? "").trim() || undefined;
- 
-  return {
-    id,
-    title: String(data.title ?? ""),       // legacy fallback
-    englishTitle,                           // new
-    teluguTitle,                            // new
-    lyrics: String(data.lyrics ?? data.teluguLyrics ?? ""),
-    transliteratedLyrics: String(data.transliteratedLyrics ?? data.englishLyrics ?? ""),
-    imageUrl: rawImage || undefined,
-    audioUrl: rawAudio || undefined,
-    youtubeUrl: rawYoutube || undefined,
-    playCount: typeof data.playCount === "number" ? data.playCount : 0,
-    createdAt: toMillis(data.createdAt),
-  };
+  return normalizeSongFromFirestore(id, data);
 }
 
 async function fetchAllSongs(): Promise<FirebaseSong[]> {
@@ -147,6 +133,11 @@ async function fetchAllSongs(): Promise<FirebaseSong[]> {
 
 export async function getAllSongs(): Promise<FirebaseSong[]> {
   return fetchAllSongs();
+}
+
+export async function getPublishedSongs(): Promise<FirebaseSong[]> {
+  const songs = await fetchAllSongs();
+  return filterPublishedSongs(songs);
 }
 
 // ── incrementPlayCount ────────────────────────────────────────────────────────
@@ -225,25 +216,43 @@ export async function searchSongs(searchQuery: string): Promise<FirebaseSong[]> 
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const songs = await getAllSongs();
+  const songs = await getPublishedSongs();
   return songs.filter((song) => {
-    const inEnglishTitle = (song.englishTitle ?? "").toLowerCase().includes(normalized);
-    const inTeluguTitle = (song.teluguTitle ?? "").toLowerCase().includes(normalized);
-    const inLegacyTitle = (song.title ?? "").toLowerCase().includes(normalized);
-    return inEnglishTitle || inTeluguTitle || inLegacyTitle;
+    const haystack = [
+      song.songTitle,
+      song.alternateTitle ?? "",
+      song.artist ?? "",
+      song.category,
+      song.scriptureReference ?? "",
+      ...song.tags,
+      song.title,
+      song.englishTitle ?? "",
+      song.teluguTitle ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalized);
   });
 }
 
 export async function addSong(songData: CreateSongInput): Promise<string> {
+  const payload = toSongFirestorePayload({
+    ...songData,
+    category: songData.category ?? "Worship",
+    featured: songData.featured ?? false,
+    published: songData.published ?? true,
+    tags: songData.tags ?? [],
+  });
+
   const adminDb = getAdminDb();
 
   if (adminDb) {
     try {
       console.log("[Firebase] Adding song (admin):", {
-        title: songData.title,
+        title: songData.songTitle,
       });
       const docRef = await adminDb.collection(SONGS_COLLECTION).add({
-        ...songData,
+        ...payload,
         createdAt: FieldValue.serverTimestamp(),
       });
       console.log("[Firebase] Song added (admin):", docRef.id);
@@ -258,10 +267,10 @@ export async function addSong(songData: CreateSongInput): Promise<string> {
 
   try {
     console.log("[Firebase] Adding song (client):", {
-      title: songData.title,
+      title: songData.songTitle,
     });
     const docRef = await addDoc(collection(db, SONGS_COLLECTION), {
-      ...songData,
+      ...payload,
       createdAt: Timestamp.now(),
     });
     console.log("[Firebase] Song added (client):", docRef.id);
@@ -275,15 +284,16 @@ export async function updateSong(
   songId: string,
   updates: UpdateSongInput
 ): Promise<void> {
+  const payload = toSongFirestorePayload(updates);
   const adminDb = getAdminDb();
 
   if (adminDb) {
     try {
       console.log("[Firebase] Updating song (admin):", {
         songId,
-        updates: Object.keys(updates),
+        updates: Object.keys(payload),
       });
-      await adminDb.collection(SONGS_COLLECTION).doc(songId).update(updates);
+      await adminDb.collection(SONGS_COLLECTION).doc(songId).update(payload);
       console.log("[Firebase] Song updated (admin):", songId);
       return;
     } catch (error) {
@@ -297,10 +307,10 @@ export async function updateSong(
   try {
     console.log("[Firebase] Updating song (client):", {
       songId,
-      updates: Object.keys(updates),
+      updates: Object.keys(payload),
     });
     const songRef = doc(db, SONGS_COLLECTION, songId);
-    await updateDoc(songRef, updates);
+    await updateDoc(songRef, payload);
     console.log("[Firebase] Song updated (client):", songId);
   } catch (error) {
     wrapFirebaseError(error);

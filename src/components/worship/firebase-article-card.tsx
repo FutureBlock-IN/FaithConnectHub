@@ -1,3 +1,5 @@
+import React from "react";
+
 import type { FirebaseArticle } from "@/types/firebase-article";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
@@ -18,7 +20,7 @@ function getAuthorInitial(author: string): string {
   return trimmed.charAt(0).toUpperCase();
 }
 
-export function FirebaseArticleCard({
+export const FirebaseArticleCard = React.memo(function FirebaseArticleCard({
   article,
   className,
 }: FirebaseArticleCardProps) {
@@ -100,4 +102,4 @@ export function FirebaseArticleCard({
       </div>
     </ProtectedContentLink>
   );
-}
+});

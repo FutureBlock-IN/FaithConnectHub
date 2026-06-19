@@ -25,6 +25,7 @@ import { SermonList } from "@/components/admin/sermon-list";
 import { MusicList } from "@/components/admin/music-list";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
 import {
@@ -35,17 +36,6 @@ import {
 } from "@/lib/sermon-firestore";
 
 type AdminTab = "songs" | "sermons" | "articles";
-
-function toMillis(value: unknown): number {
-  if (
-    value &&
-    typeof value === "object" &&
-    typeof (value as { toMillis(): number }).toMillis === "function"
-  ) {
-    return (value as { toMillis(): number }).toMillis();
-  }
-  return typeof value === "number" ? value : Date.now();
-}
 
 function parseAdminTab(value: string | null): AdminTab {
   if (value === "sermons" || value === "articles") return value;
@@ -80,7 +70,25 @@ export default function AdminPage() {
   const [selectedArticle, setSelectedArticle] =
     useState<FirebaseArticle | null>(null);
 
+  const [loadedSongsTab, setLoadedSongsTab] = useState(
+    () => parseAdminTab(searchParams.get("tab")) === "songs"
+  );
+  const [loadedSermonsTab, setLoadedSermonsTab] = useState(
+    () => parseAdminTab(searchParams.get("tab")) === "sermons"
+  );
+  const [loadedArticlesTab, setLoadedArticlesTab] = useState(
+    () => parseAdminTab(searchParams.get("tab")) === "articles"
+  );
+
   useEffect(() => {
+    if (activeTab === "songs") setLoadedSongsTab(true);
+    if (activeTab === "sermons") setLoadedSermonsTab(true);
+    if (activeTab === "articles") setLoadedArticlesTab(true);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!loadedSongsTab) return;
+
     const songsQuery = query(
       collection(db, "songs"),
       orderBy("createdAt", "desc")
@@ -89,26 +97,12 @@ export default function AdminPage() {
       songsQuery,
       (snapshot) => {
         setSongs(
-          snapshot.docs.map((docSnap) => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              title: String(data.title ?? ""),
-              englishTitle: String(data.englishTitle ?? "").trim() || undefined,
-              teluguTitle: String(data.teluguTitle ?? "").trim() || undefined,
-              lyrics: String(data.lyrics ?? data.teluguLyrics ?? ""),
-              transliteratedLyrics: String(
-                data.transliteratedLyrics ?? data.englishLyrics ?? ""
-              ),
-              imageUrl:
-                String(data.imageUrl ?? data.coverImageUrl ?? "") || undefined,
-              audioUrl:
-                String(data.audioUrl ?? data.audioFileUrl ?? "") || undefined,
-              youtubeUrl: String(data.youtubeUrl ?? data.videoUrl ?? "") || undefined,
-              playCount: typeof data.playCount === "number" ? data.playCount : 0,
-              createdAt: toMillis(data.createdAt),
-            };
-          })
+          snapshot.docs.map((docSnap) =>
+            normalizeSongFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          )
         );
         setSongsLoading(false);
       },
@@ -118,11 +112,13 @@ export default function AdminPage() {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [loadedSongsTab]);
 
   const sermonSnapshotsRef = useRef<Record<string, FirebaseSermon[]>>({});
 
   useEffect(() => {
+    if (!loadedSermonsTab) return;
+
     sermonSnapshotsRef.current = {};
 
     function publishMerged() {
@@ -169,9 +165,11 @@ export default function AdminPage() {
     );
 
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, []);
+  }, [loadedSermonsTab]);
 
   useEffect(() => {
+    if (!loadedArticlesTab) return;
+
     const articlesQuery = query(
       collection(db, "articles"),
       orderBy("dateCreated", "desc")
@@ -195,9 +193,9 @@ export default function AdminPage() {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [loadedArticlesTab]);
 
-  const withAudio = songs.filter((s) => s.audioUrl).length;
+  const publishedSongs = songs.filter((s) => s.published !== false).length;
   const publishedSermons = sermons.filter((s) => s.isPublished).length;
   const publishedArticles = articles.filter((a) => a.isPublished).length;
 
@@ -272,11 +270,13 @@ export default function AdminPage() {
         </TabsList>
 
         <TabsContent value="songs" className="mt-0 space-y-4">
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          {activeTab === "songs" ? (
+            <>
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {[
               { icon: <ListMusic className="h-4 w-4" />, label: "Total Songs", value: songsLoading ? "—" : songs.length },
-              { icon: <UploadCloud className="h-4 w-4" />, label: "With Audio", value: songsLoading ? "—" : withAudio },
-              { icon: <Music2 className="h-4 w-4" />, label: "With Lyrics", value: songsLoading ? "—" : songs.filter((s) => s.lyrics?.trim()).length },
+              { icon: <UploadCloud className="h-4 w-4" />, label: "Published", value: songsLoading ? "—" : publishedSongs },
+              { icon: <Music2 className="h-4 w-4" />, label: "With Lyrics", value: songsLoading ? "—" : songs.filter((s) => s.originalLyrics?.trim() || s.lyrics?.trim()).length },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-card px-4 py-4 shadow-sm">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">{stat.icon}</div>
@@ -291,10 +291,14 @@ export default function AdminPage() {
             onEdit={(song) => { setSelectedSong(song); setSongModalOpen(true); }}
             onDelete={() => {}}
           />
+            </>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="sermons" className="mt-0 space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          {activeTab === "sermons" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             {[
               { icon: <Church className="h-4 w-4" />, label: "Total Sermons", value: sermonsLoading ? "—" : sermons.length },
               { icon: <Church className="h-4 w-4" />, label: "Published", value: sermonsLoading ? "—" : publishedSermons },
@@ -312,10 +316,14 @@ export default function AdminPage() {
             onEdit={(sermon) => { setSelectedSermon(sermon); setSermonModalOpen(true); }}
             onDelete={() => {}}
           />
+            </>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="articles" className="mt-0 space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          {activeTab === "articles" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             {[
               { icon: <FileText className="h-4 w-4" />, label: "Total Articles", value: articlesLoading ? "—" : articles.length },
               { icon: <FileText className="h-4 w-4" />, label: "Published", value: articlesLoading ? "—" : publishedArticles },
@@ -333,6 +341,8 @@ export default function AdminPage() {
             onEdit={(article) => { setSelectedArticle(article); setArticleModalOpen(true); }}
             onDelete={() => {}}
           />
+            </>
+          ) : null}
         </TabsContent>
       </Tabs>
 

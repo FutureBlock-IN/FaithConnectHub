@@ -105,42 +105,16 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import type { FirebaseSong } from "@/types/firebase-song";
 
-import { FirebaseSongCard } from "@/components/music/firebase-song-card";
+import { FirebaseSongCard, songsAlbumGridClassName } from "@/components/music/firebase-song-card";
 import { db } from "@/lib/firebase";
+import {
+  filterPublishedSongs,
+  normalizeSongFromFirestore,
+} from "@/lib/song-firestore";
 
 type FirebaseSongsSectionProps = {
   songs: FirebaseSong[];
 };
-
-function normalizeSongData(
-  id: string,
-  data: Record<string, unknown>
-): FirebaseSong {
-  const createdAtValue = data.createdAt as unknown;
-  const createdAt =
-    createdAtValue &&
-    typeof createdAtValue === "object" &&
-    typeof (createdAtValue as { toMillis(): number }).toMillis === "function"
-      ? (createdAtValue as { toMillis(): number }).toMillis()
-      : typeof createdAtValue === "number"
-      ? createdAtValue
-      : Date.now();
-
-  return {
-    id,
-    title: String(data.title ?? ""),
-    englishTitle: String(data.englishTitle ?? "").trim() || undefined,
-    teluguTitle: String(data.teluguTitle ?? "").trim() || undefined,
-    lyrics: String(data.lyrics ?? data.teluguLyrics ?? ""),
-    transliteratedLyrics: String(
-      data.transliteratedLyrics ?? data.englishLyrics ?? ""
-    ),
-    imageUrl: String(data.imageUrl ?? data.coverImageUrl ?? "") || undefined,
-    audioUrl: String(data.audioUrl ?? data.audioFileUrl ?? "") || undefined,
-    playCount: typeof data.playCount === "number" ? data.playCount : 0,
-    createdAt,
-  };
-}
 
 export function FirebaseSongsSection({ songs }: FirebaseSongsSectionProps) {
   const [liveSongs, setLiveSongs] = useState<FirebaseSong[]>(songs);
@@ -154,11 +128,13 @@ export function FirebaseSongsSection({ songs }: FirebaseSongsSectionProps) {
     const unsubscribe = onSnapshot(
       songsQuery,
       (snapshot) => {
-        setLiveSongs(
-          snapshot.docs.map((doc) =>
-            normalizeSongData(doc.id, doc.data() as Record<string, unknown>)
+        const nextSongs = snapshot.docs.map((doc) =>
+          normalizeSongFromFirestore(
+            doc.id,
+            doc.data() as Record<string, unknown>
           )
         );
+        setLiveSongs(filterPublishedSongs(nextSongs));
       },
       (error) => {
         console.error("[FirebaseSongsSection] Firestore snapshot failed:", error);
@@ -189,7 +165,7 @@ export function FirebaseSongsSection({ songs }: FirebaseSongsSectionProps) {
     <section className="w-full space-y-5">
       <SectionHeader count={liveSongs.length} />
 
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <div className={songsAlbumGridClassName}>
         {liveSongs.map((song) => (
           <FirebaseSongCard key={song.id} song={song} />
         ))}

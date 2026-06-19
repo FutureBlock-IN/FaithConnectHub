@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   const description =
     searchParams.get("description")?.slice(0, 300) ?? siteConfig.description;
 
-  const defaultImage = new URL("/images/logo.png", siteConfig.url).toString();
+  const defaultImage = new URL(siteConfig.image, siteConfig.url).toString();
   const imageUrl = searchParams.get("image") ?? defaultImage;
   const resolvedImageUrl = new URL(imageUrl, siteConfig.url).toString();
 

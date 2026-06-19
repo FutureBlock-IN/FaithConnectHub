@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 import { ContentAuthRequired } from "@/components/auth/content-auth-required";
 import { SongDetailClient } from "@/components/music/song-detail-client";
 import { siteConfig } from "@/config/site";
 import { isAuthenticatedServer } from "@/lib/auth-server";
-import { getSongById } from "@/lib/firebase-queries";
+import { getSongByIdCached } from "@/lib/cached-worship-data";
+import { isSongPublished, getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 import { getSongCoverUrl } from "@/lib/utils";
 import { DEFAULT_SONG_COVER } from "@/config/site";
 
@@ -19,28 +20,28 @@ export async function generateMetadata({
   params,
 }: SongDetailPageProps): Promise<Metadata> {
   const { id } = await params;
-  const song = await getSongById(id);
+  const song = await getSongByIdCached(id);
 
   if (!song) {
     return { title: siteConfig.name };
   }
 
-  const englishTitle = song.englishTitle ?? song.title;
-  const teluguTitle  = song.teluguTitle  ?? "";
+  const displayTitle = getSongDisplayTitle(song);
+  const alternateTitle = getSongAlternateTitle(song) ?? "";
   const coverUrl     = getSongCoverUrl(song.imageUrl) || `${siteConfig.url}${DEFAULT_SONG_COVER}`;
 
   // Absolute URL — required for WhatsApp preview to work
   const songUrl     = `${siteConfig.url}/songs/${encodeURIComponent(id)}`;
-  const description = teluguTitle && teluguTitle !== englishTitle
-    ? `${teluguTitle} • ${siteConfig.name}`
-    : `${englishTitle} • ${siteConfig.name}`;
+  const description = alternateTitle && alternateTitle !== displayTitle
+    ? `${alternateTitle} • ${siteConfig.name}`
+    : `${displayTitle} • ${siteConfig.name}`;
 
   return {
-    title: englishTitle,
+    title: displayTitle,
     description,
 
     openGraph: {
-      title: englishTitle,
+      title: displayTitle,
       description,
       url: songUrl,                      // ✅ absolute URL
       siteName: siteConfig.name,
@@ -50,14 +51,14 @@ export async function generateMetadata({
           url: coverUrl,                 // ✅ must be absolute URL
           width: 800,
           height: 800,
-          alt: englishTitle,
+          alt: displayTitle,
         },
       ],
     },
 
     twitter: {
       card: "summary_large_image",       // ✅ shows big image in Telegram too
-      title: englishTitle,
+      title: displayTitle,
       description,
       images: [coverUrl],
     },
@@ -73,9 +74,9 @@ export default async function SongDetailPage({ params }: SongDetailPageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
-  const song = await getSongById(id);
+  const song = await getSongByIdCached(id);
 
-  if (!song) {
+  if (!song || !isSongPublished(song)) {
     notFound();
   }
 

@@ -1,4 +1,4 @@
-import { FirebaseSongCard } from "@/components/music/firebase-song-card";
+import { FirebaseSongCard, songsAlbumGridClassName } from "@/components/music/firebase-song-card";
 import { getAllSongs } from "@/lib/firebase-queries";
 
 export async function FirebaseTopSongs() {
@@ -19,7 +19,7 @@ export async function FirebaseTopSongs() {
         Your Library
       </p>
 
-      <div className="flex flex-col gap-3">
+      <div className={songsAlbumGridClassName}>
         {preview.map((song) => (
           <FirebaseSongCard key={song.id} song={song} />
         ))}

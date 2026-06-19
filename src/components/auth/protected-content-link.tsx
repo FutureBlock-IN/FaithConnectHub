@@ -11,6 +11,7 @@ type ProtectedContentLinkProps = {
   href: string;
   className?: string;
   children: React.ReactNode;
+  "aria-label"?: string;
 };
 
 /**
@@ -20,13 +21,14 @@ export function ProtectedContentLink({
   href,
   className,
   children,
+  "aria-label": ariaLabel,
 }: ProtectedContentLinkProps) {
   const { user, loading } = useFirebaseAuth();
   const { openDialog } = useContentAuthDialog();
 
   if (!loading && user) {
     return (
-      <Link href={href} className={className}>
+      <Link href={href} className={className} aria-label={ariaLabel}>
         {children}
       </Link>
     );
@@ -38,6 +40,7 @@ export function ProtectedContentLink({
       className={cn("cursor-pointer text-left", className)}
       onClick={() => openDialog(href, { redirectOnClose: false })}
       disabled={loading}
+      aria-label={ariaLabel}
     >
       {children}
     </button>

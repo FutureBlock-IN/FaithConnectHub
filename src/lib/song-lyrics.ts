@@ -1,31 +1,59 @@
 import type { FirebaseSong } from "@/types/firebase-song";
 
-export function getLyricsDisplayContent(
-  lyrics: string,
-  transliteratedLyrics?: string
-) {
-  const telugu = lyrics ?? "";
-  const english = transliteratedLyrics ?? "";
+export type SongLyricsContent = {
+  /** English lyrics — first tab */
+  english: string;
+  /** Transliterated / translated lyrics — second tab */
+  translated: string;
+  /** @deprecated use english */
+  original: string;
+  /** @deprecated use translated */
+  translation: string;
+  englishDisplay: string;
+  translatedDisplay: string;
+  hasLyrics: boolean;
+};
 
+export function getLyricsDisplayContent(
+  englishLyrics: string,
+  translatedLyrics?: string
+): { englishDisplay: string; translatedDisplay: string } {
   return {
-    teluguDisplay: telugu.trim(),
-    englishDisplay: english.trim(),
+    englishDisplay: (englishLyrics ?? "").trim(),
+    translatedDisplay: (translatedLyrics ?? "").trim(),
   };
 }
 
-export function getSongLyricsContent(song: FirebaseSong) {
-  const telugu = song.lyrics ?? "";
-  const english = song.transliteratedLyrics ?? "";
-  const { teluguDisplay, englishDisplay } = getLyricsDisplayContent(
-    telugu,
-    english
+/**
+ * Resolves lyrics for the detail page tabs:
+ * - English tab: englishLyrics, translationLyrics, transliteratedLyrics (legacy)
+ * - Translated tab: translatedLyrics, originalLyrics, lyrics, teluguLyrics (legacy)
+ */
+export function getSongLyricsContent(song: FirebaseSong): SongLyricsContent {
+  const english = (
+    song.translationLyrics ??
+    song.transliteratedLyrics ??
+    ""
+  ).trim();
+
+  const translated = (
+    song.originalLyrics ??
+    song.lyrics ??
+    ""
+  ).trim();
+
+  const { englishDisplay, translatedDisplay } = getLyricsDisplayContent(
+    english,
+    translated
   );
 
   return {
-    telugu,
     english,
-    teluguDisplay,
+    translated,
+    original: translated,
+    translation: english,
     englishDisplay,
-    hasLyrics: Boolean(teluguDisplay || englishDisplay),
+    translatedDisplay,
+    hasLyrics: Boolean(englishDisplay || translatedDisplay),
   };
 }

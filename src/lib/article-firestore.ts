@@ -60,3 +60,11 @@ export function normalizeArticleFromFirestore(
     isPublished: Boolean(data.isPublished),
   };
 }
+
+/** Strips article body for list/navigation payloads. */
+export function toArticleListItem(article: FirebaseArticle): FirebaseArticle {
+  return {
+    ...article,
+    content: "",
+  };
+}

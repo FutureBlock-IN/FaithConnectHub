@@ -6,10 +6,10 @@ import { SermonMediaSection } from "@/components/sermons/sermon-media-section";
 import { ShareContentButton } from "@/components/share-content-button";
 import { siteConfig } from "@/config/site";
 import { isAuthenticatedServer } from "@/lib/auth-server";
-import { getSermonById } from "@/lib/firebase-sermon-queries";
+import { getSermonByIdCached } from "@/lib/cached-worship-data";
 import { getSongCoverUrl } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 type SermonPageProps = {
   params: Promise<{ id: string }>;
@@ -17,7 +17,7 @@ type SermonPageProps = {
 
 export async function generateMetadata({ params }: SermonPageProps) {
   const { id } = await params;
-  const sermon = await getSermonById(decodeURIComponent(id));
+  const sermon = await getSermonByIdCached(decodeURIComponent(id));
 
   if (!sermon || !sermon.isPublished) {
     return { title: "Sermon Not Found" };
@@ -39,7 +39,7 @@ export default async function SermonPage({ params }: SermonPageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
-  const sermon = await getSermonById(decodedId);
+  const sermon = await getSermonByIdCached(decodedId);
 
   if (!sermon || !sermon.isPublished) {
     notFound();

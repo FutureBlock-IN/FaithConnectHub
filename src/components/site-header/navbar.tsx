@@ -62,8 +62,7 @@ import { ImageWithFallback } from "@/components/image-with-fallback";
 import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
-import { FirebaseWorshipTopItems } from "../search/firebase-worship-top-items-server";
-import { SearchMenu } from "../search/search-menu";
+import { NavbarSearchSection } from "../search/navbar-search-section";
 import { AuthNav } from "../site-header/auth-nav";
 
 // NO "use client" here — this is a Server Component
@@ -77,28 +76,22 @@ export async function Navbar() {
     >
       <div className="relative mx-auto flex h-14 min-w-0 items-center gap-3 px-3 sm:h-16 sm:px-4 md:px-6">
 
-        {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 sm:gap-3">
+        {/* Logo (includes wordmark in image) */}
+        <Link href="/" className="flex shrink-0 items-center">
           <ImageWithFallback
-            src={siteConfig.image || "/images/logo.png"}
+            src={siteConfig.image}
             fallback="/images/logo.png"
             alt={siteConfig.name}
-            width={40}
-            height={40}
-            className="h-9 w-9 rounded-full object-contain ring-2 ring-primary/20 sm:h-10 sm:w-10"
+            width={160}
+            height={48}
+            className="h-9 w-auto object-contain sm:h-10"
             priority
           />
-          <span className="hidden font-heading text-sm font-semibold text-foreground sm:inline md:text-base">
-            {siteConfig.name}
-          </span>
         </Link>
 
         {/* Search — center */}
         <div className="flex min-w-0 flex-1 justify-center px-1 sm:px-2 md:px-4">
-          <SearchMenu
-            topSearch={<FirebaseWorshipTopItems />}
-            className="w-full max-w-[200px] sm:max-w-sm md:max-w-md lg:max-w-lg"
-          />
+          <NavbarSearchSection className="w-full max-w-[200px] sm:max-w-sm md:max-w-md lg:max-w-lg" />
         </div>
 
         {/* Desktop nav */}

@@ -173,12 +173,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Edit2, Trash2, Loader2, Music2, FileText, Headphones } from "lucide-react";
+import { Edit2, Trash2, Loader2, Music2, FileText, Headphones, Star, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 import type { FirebaseSong } from "@/types/firebase-song";
 import { DEFAULT_SONG_COVER } from "@/config/site";
 import { getSongCoverUrl } from "@/lib/utils";
+import {
+  getSongAlternateTitle,
+  getSongDisplayTitle,
+} from "@/lib/song-firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -277,8 +281,10 @@ export function MusicList({ songs, loading, onEdit, onDelete }: MusicListProps) 
           {songs.map((song, index) => {
             const coverSrc = getSongCoverUrl(song.imageUrl);
             const hasAudio = !!song.audioUrl?.trim();
-            const hasLyrics = !!song.lyrics?.trim();
+            const hasLyrics = !!(song.originalLyrics?.trim() || song.lyrics?.trim());
             const isDeleting = deleting === song.id;
+            const displayTitle = getSongDisplayTitle(song);
+            const alternateTitle = getSongAlternateTitle(song);
 
             return (
               <div
@@ -294,7 +300,9 @@ export function MusicList({ songs, loading, onEdit, onDelete }: MusicListProps) 
                 <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border/50 shadow-sm">
                   <img
                     src={coverSrc}
-                    alt={song.title}
+                    alt={displayTitle}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                     onError={(e) => {
                       e.currentTarget.src = DEFAULT_SONG_COVER;
@@ -305,9 +313,29 @@ export function MusicList({ songs, loading, onEdit, onDelete }: MusicListProps) 
                 {/* Title + badges */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">
-                    {song.title}
+                    {displayTitle}
                   </p>
-                  <div className="mt-1 flex items-center gap-1.5">
+                  {alternateTitle ? (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {alternateTitle}
+                    </p>
+                  ) : null}
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      {song.category}
+                    </span>
+                    {song.featured ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <Star className="h-2.5 w-2.5" />
+                        Featured
+                      </span>
+                    ) : null}
+                    {!song.published ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <EyeOff className="h-2.5 w-2.5" />
+                        Draft
+                      </span>
+                    ) : null}
                     {hasAudio && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
                         <Headphones className="h-2.5 w-2.5" />
@@ -375,7 +403,7 @@ export function MusicList({ songs, loading, onEdit, onDelete }: MusicListProps) 
             <AlertDialogDescription>
               Are you sure you want to delete{" "}
               <span className="font-semibold text-foreground">
-                &quot;{selectedSong?.title}&quot;
+                &quot;{selectedSong ? getSongDisplayTitle(selectedSong) : ""}&quot;
               </span>
               ? This action cannot be undone.
             </AlertDialogDescription>
