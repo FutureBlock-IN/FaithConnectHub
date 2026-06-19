@@ -2,8 +2,7 @@
 
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
-import { type ThemeProviderProps } from "next-themes/dist/types";
+import { ThemeProvider, type ThemeProviderProps } from "next-themes";
 
 import { FirebaseAuthProvider } from "@/context/firebase-auth-context";
 import { ContentAuthDialogProvider } from "@/context/content-auth-dialog-context";
