@@ -8,9 +8,9 @@ import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import type { FirebaseSong } from "@/types/firebase-song";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { DEFAULT_SONG_COVER } from "@/config/site";
+import { usePlaySong } from "@/hooks/use-play-song";
 import {
   useCurrentSongIndex,
-  useIsPlayerInit,
   useQueue,
 } from "@/hooks/use-store";
 import {
@@ -29,17 +29,13 @@ type FirebaseSongCardProps = {
 function SongCoverPlayControl({
   song,
   displayTitle,
-  artistLine,
-  coverUrl,
+  isCurrentSong,
 }: {
   song: FirebaseSong;
   displayTitle: string;
-  artistLine?: string;
-  coverUrl: string;
+  isCurrentSong: boolean;
 }) {
-  const [queue, setQueue] = useQueue();
-  const [currentIndex, setCurrentIndex] = useCurrentSongIndex();
-  const [, setIsPlayerInit] = useIsPlayerInit();
+  const { playSong } = usePlaySong();
   const playing = useSyncExternalStore(
     subscribePlaybackPlaying,
     getPlaybackPlaying,
@@ -47,8 +43,6 @@ function SongCoverPlayControl({
   );
 
   const audioUrl = song.audioUrl?.trim() ?? "";
-  const songIndex = queue.findIndex((item) => item.id === song.id);
-  const isCurrentSong = songIndex === currentIndex && songIndex !== -1;
   const isPlaying = isCurrentSong && playing;
 
   if (!audioUrl) return null;
@@ -62,21 +56,7 @@ function SongCoverPlayControl({
       return;
     }
 
-    setQueue([
-      {
-        id: song.id,
-        name: displayTitle,
-        subtitle: artistLine ?? "",
-        image: coverUrl,
-        duration: 0,
-        download_url: audioUrl,
-        url: `/songs/${encodeURIComponent(song.id)}`,
-        type: "song",
-        artists: [],
-      },
-    ]);
-    setCurrentIndex(0);
-    setIsPlayerInit(true);
+    playSong(song);
   }
 
   return (
@@ -109,6 +89,10 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   song,
   className,
 }: FirebaseSongCardProps) {
+  const { playSong } = usePlaySong();
+  const [queue] = useQueue();
+  const [currentIndex] = useCurrentSongIndex();
+
   if (!song.id?.trim()) return null;
 
   const songHref = `/songs/${encodeURIComponent(song.id)}`;
@@ -118,6 +102,16 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   const linkLabel = artistLine
     ? `${displayTitle} by ${artistLine}`
     : displayTitle;
+  const hasAudio = !!song.audioUrl?.trim();
+  const songIndex = queue.findIndex((item) => item.id === song.id);
+  const isCurrentSong = songIndex === currentIndex && songIndex !== -1;
+
+  function handleCoverPlay(event: React.MouseEvent) {
+    if (!hasAudio) return;
+    event.preventDefault();
+    event.stopPropagation();
+    playSong(song);
+  }
 
   return (
     <article
@@ -131,28 +125,46 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
       )}
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted/15">
-        <ProtectedContentLink
-          href={songHref}
-          aria-label={linkLabel}
-          className="block size-full focus-visible:outline-none"
-        >
-          <ImageWithFallback
-            src={coverUrl}
-            fallback={DEFAULT_SONG_COVER}
-            width={320}
-            height={320}
-            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
-            alt=""
-            aria-hidden
-            className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
-          />
-        </ProtectedContentLink>
+        {hasAudio ?
+          <button
+            type="button"
+            aria-label={`Play ${linkLabel}`}
+            onClick={handleCoverPlay}
+            className="block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+          >
+            <ImageWithFallback
+              src={coverUrl}
+              fallback={DEFAULT_SONG_COVER}
+              width={320}
+              height={320}
+              sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
+              alt=""
+              aria-hidden
+              className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
+            />
+          </button>
+        : <ProtectedContentLink
+            href={songHref}
+            aria-label={linkLabel}
+            className="block size-full focus-visible:outline-none"
+          >
+            <ImageWithFallback
+              src={coverUrl}
+              fallback={DEFAULT_SONG_COVER}
+              width={320}
+              height={320}
+              sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
+              alt=""
+              aria-hidden
+              className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
+            />
+          </ProtectedContentLink>
+        }
 
         <SongCoverPlayControl
           song={song}
           displayTitle={displayTitle}
-          artistLine={artistLine ?? undefined}
-          coverUrl={coverUrl}
+          isCurrentSong={isCurrentSong}
         />
       </div>
 
@@ -165,11 +177,11 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
           {displayTitle}
         </h3>
 
-        {artistLine ? (
+        {artistLine ?
           <p className="mt-0.5 line-clamp-2 text-[13px] font-normal leading-[1.25] text-[#b3b3b3]">
             {artistLine}
           </p>
-        ) : null}
+        : null}
       </ProtectedContentLink>
     </article>
   );

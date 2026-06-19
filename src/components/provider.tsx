@@ -6,6 +6,7 @@ import { ThemeProvider, type ThemeProviderProps } from "next-themes";
 
 import { FirebaseAuthProvider } from "@/context/firebase-auth-context";
 import { ContentAuthDialogProvider } from "@/context/content-auth-dialog-context";
+import { GlobalAudioPlayerShell } from "./global-audio-player-shell";
 import { Toaster } from "./ui/sonner";
 import { TooltipProvider } from "./ui/tooltip";
 
@@ -32,7 +33,9 @@ export default function Providers({ children, theme }: Props) {
       <FirebaseAuthProvider>
         <ContentAuthDialogProvider>
           <QueryClientProvider client={queryClient}>
-            <TooltipProvider>{children}</TooltipProvider>
+            <TooltipProvider>
+              <GlobalAudioPlayerShell>{children}</GlobalAudioPlayerShell>
+            </TooltipProvider>
           </QueryClientProvider>
         </ContentAuthDialogProvider>
       </FirebaseAuthProvider>

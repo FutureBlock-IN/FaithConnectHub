@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import type { Queue } from "@/types";
 
 import { useQueue } from "@/hooks/use-store";
-import { getHref, getImageSrc } from "@/lib/utils";
+import { cn, getHref, getImageSrc } from "@/lib/utils";
 import { TilePlayPauseButton } from "./song-list/play-pause-button";
 import { Button } from "./ui/button";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
@@ -22,7 +22,11 @@ import {
 } from "./ui/sheet";
 import { Skeleton } from "./ui/skeleton";
 
-export function Queue() {
+type QueueProps = {
+  triggerClassName?: string;
+};
+
+export function Queue({ triggerClassName }: QueueProps = {}) {
   const [queue, setQueue] = useQueue();
 
   function removeFromQueue(id: string) {
@@ -52,9 +56,16 @@ export function Queue() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button size="icon" variant="ghost" className="shrink-0">
-          <ListOrdered />
-        </Button>
+        <button
+          type="button"
+          aria-label="Queue"
+          className={cn(
+            "inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[#b3b3b3] transition-colors hover:text-white",
+            triggerClassName
+          )}
+        >
+          <ListOrdered className="size-4" />
+        </button>
       </SheetTrigger>
 
       <SheetContent

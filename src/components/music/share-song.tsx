@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type ShareSongButtonProps = {
   songTitle: string;
@@ -18,13 +19,18 @@ type ShareSongButtonProps = {
   /** @deprecated use alternateTitle */
   teluguTitle?: string;
   songId: string;
+  className?: string;
 };
+
+const secondaryActionClass =
+  "h-10 gap-2 rounded-full border border-white/20 bg-transparent px-5 text-sm font-medium text-white hover:border-white hover:bg-white/10";
 
 export function ShareSongButton({
   songTitle,
   alternateTitle,
   teluguTitle,
   songId,
+  className,
 }: ShareSongButtonProps) {
   const subtitle = alternateTitle ?? teluguTitle;
   const [copied, setCopied] = useState(false);
@@ -68,12 +74,11 @@ export function ShareSongButton({
     return (
       <Button
         type="button"
-        variant="outline"
-        size="sm"
-        className="h-9 gap-2 rounded-full px-4 text-sm"
+        variant="ghost"
+        className={cn(secondaryActionClass, className)}
         onClick={handleNativeShare}
       >
-        <Share2 className="size-3.5" />
+        <Share2 className="size-4" />
         Share
       </Button>
     );
@@ -85,11 +90,10 @@ export function ShareSongButton({
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 gap-2 rounded-full px-4 text-sm"
+          variant="ghost"
+          className={cn(secondaryActionClass, className)}
         >
-          <Share2 className="size-3.5" />
+          <Share2 className="size-4" />
           Share
         </Button>
       </DropdownMenuTrigger>
