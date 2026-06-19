@@ -26,14 +26,6 @@ type FirebaseSongCardProps = {
   className?: string;
 };
 
-function getSubtitleLine(artistLine?: string, category?: string): string | null {
-  const artist = artistLine?.trim();
-  if (artist) return artist;
-  const cat = category?.trim();
-  if (cat) return cat;
-  return null;
-}
-
 function SongCoverPlayControl({
   song,
   displayTitle,
@@ -94,7 +86,7 @@ function SongCoverPlayControl({
       onClick={handlePlayClick}
       className={cn(
         "absolute bottom-2 right-2 z-20 flex h-10 w-10 items-center justify-center rounded-full",
-        "bg-primary text-primary-foreground shadow-lg shadow-black/50",
+        "bg-primary text-primary-foreground",
         "translate-y-1 scale-90 opacity-0 transition-all duration-200 ease-out",
         "group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100",
         "group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100",
@@ -122,19 +114,27 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   const songHref = `/songs/${encodeURIComponent(song.id)}`;
   const coverUrl = getSongCoverUrl(song.imageUrl);
   const displayTitle = getSongDisplayTitle(song);
-  const artistLine = getSongArtistLine(song);
-  const subtitleLine = getSubtitleLine(artistLine, song.category);
+  const artistLine = getSongArtistLine(song)?.trim() || song.category?.trim() || null;
   const linkLabel = artistLine
     ? `${displayTitle} by ${artistLine}`
     : displayTitle;
 
   return (
-    <article className={cn("group flex w-full flex-col", className)}>
+    <article
+      className={cn(
+        "group relative w-full",
+        "rounded-lg p-2.5",
+        "cursor-pointer transition-all duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:bg-white/[0.08]",
+        "focus-within:bg-white/[0.08]",
+        className
+      )}
+    >
       <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted/15">
         <ProtectedContentLink
           href={songHref}
           aria-label={linkLabel}
-          className="block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="block size-full focus-visible:outline-none"
         >
           <ImageWithFallback
             src={coverUrl}
@@ -144,14 +144,14 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
             sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
             alt=""
             aria-hidden
-            className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
           />
         </ProtectedContentLink>
 
         <SongCoverPlayControl
           song={song}
           displayTitle={displayTitle}
-          artistLine={artistLine}
+          artistLine={artistLine ?? undefined}
           coverUrl={coverUrl}
         />
       </div>
@@ -159,18 +159,15 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
       <ProtectedContentLink
         href={songHref}
         aria-label={`View ${linkLabel}`}
-        className={cn(
-          "mt-2.5 flex flex-col gap-0.5",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        )}
+        className="mt-3 block min-w-0 px-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
+        <h3 className="line-clamp-2 text-[15px] font-bold leading-[1.2] tracking-tight text-foreground">
           {displayTitle}
         </h3>
 
-        {subtitleLine ? (
-          <p className="line-clamp-2 text-sm font-normal leading-snug text-[#b3b3b3]">
-            {subtitleLine}
+        {artistLine ? (
+          <p className="mt-0.5 line-clamp-2 text-[13px] font-normal leading-[1.25] text-[#b3b3b3]">
+            {artistLine}
           </p>
         ) : null}
       </ProtectedContentLink>
@@ -180,4 +177,4 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
 
 /** Spotify-style responsive album grid */
 export const songsAlbumGridClassName =
-  "grid w-full grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+  "grid w-full grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
