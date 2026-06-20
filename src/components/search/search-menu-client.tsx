@@ -14,11 +14,17 @@ import { useIsTyping } from "@/hooks/use-store";
 import { getSearchPlaceholder } from "@/lib/worship-collection";
 import { cn, isMacOs } from "@/lib/utils";
 
+import type { WorshipCatalog } from "@/lib/cached-worship-data";
+import { WorshipCatalogProvider } from "@/context/worship-catalog-context";
+
 import { FirebaseWorshipSearch } from "./firebase-worship-search";
+import { WorshipTopItemsClient } from "./firebase-worship-top-items";
+
+const TOP_ITEMS_LIMIT = 12;
 
 export type SearchMenuProps = {
   className?: string;
-  topSearch: React.ReactNode;
+  catalog: WorshipCatalog;
 };
 
 type SearchMenuTriggerProps = {
@@ -56,7 +62,7 @@ function SearchMenuTrigger({
   );
 }
 
-export function SearchMenuClient({ topSearch, className }: SearchMenuProps) {
+export function SearchMenuClient({ catalog, className }: SearchMenuProps) {
   const pathname = usePathname();
 
   const [mounted, setMounted] = useState(false);
@@ -143,9 +149,16 @@ export function SearchMenuClient({ topSearch, className }: SearchMenuProps) {
               />
             </div>
 
-            {debouncedQuery.length ?
-              <FirebaseWorshipSearch query={debouncedQuery} />
-            : topSearch}
+            <WorshipCatalogProvider catalog={catalog}>
+              {debouncedQuery.length ?
+                <FirebaseWorshipSearch query={debouncedQuery} />
+              : <WorshipTopItemsClient
+                  songs={catalog.songs.slice(0, TOP_ITEMS_LIMIT)}
+                  sermons={catalog.sermons.slice(0, TOP_ITEMS_LIMIT)}
+                  articles={catalog.articles.slice(0, TOP_ITEMS_LIMIT)}
+                />
+              }
+            </WorshipCatalogProvider>
           </DialogContent>
         </Dialog>
       : null}

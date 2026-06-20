@@ -1,24 +1,34 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import type { WorshipCollectionTab } from "@/hooks/use-store";
 import { useWorshipCollectionTab } from "@/hooks/use-store";
 import { getContentTypeFromPathname } from "@/lib/worship-collection";
 
+function getTabFromSearchParam(value: string | null): WorshipCollectionTab | null {
+  if (value === "songs" || value === "sermons" || value === "articles") {
+    return value;
+  }
+  return null;
+}
+
 export function useEffectiveWorshipCollectionTab() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [storedTab, setStoredTab] = useWorshipCollectionTab();
   const routeTab = getContentTypeFromPathname(pathname);
+  const queryTab = getTabFromSearchParam(searchParams.get("tab"));
 
   useEffect(() => {
-    if (routeTab && routeTab !== storedTab) {
-      setStoredTab(routeTab);
+    const nextTab = routeTab ?? queryTab;
+    if (nextTab && nextTab !== storedTab) {
+      setStoredTab(nextTab);
     }
-  }, [routeTab, storedTab, setStoredTab]);
+  }, [routeTab, queryTab, storedTab, setStoredTab]);
 
-  const activeTab: WorshipCollectionTab = routeTab ?? storedTab;
+  const activeTab: WorshipCollectionTab = routeTab ?? queryTab ?? storedTab;
 
   return {
     activeTab,

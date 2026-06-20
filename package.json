@@ -61,6 +61,7 @@
     "react-hook-form": "^7.53.0",
     "react-use-audio-player": "^3.0.2",
     "sonner": "^2.0.1",
+    "stripe": "^22.2.2",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.0",

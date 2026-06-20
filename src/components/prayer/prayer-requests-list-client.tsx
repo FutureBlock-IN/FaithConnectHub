@@ -4,8 +4,7 @@ import { HeartHandshake, Loader2 } from "lucide-react";
 
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 
-import { PrayerRequestCard } from "@/components/prayer/prayer-request-card";
-import { SubmitPrayerRequestButton } from "@/components/prayer/submit-prayer-request-button";
+import { PrayerWallCard } from "@/components/prayer/prayer-wall-card";
 import { useApprovedPrayerRequests } from "@/hooks/use-approved-prayer-requests";
 
 type PrayerRequestsListClientProps = {
@@ -33,19 +32,18 @@ export function PrayerRequestsListClient({
           <div>
             <p className="text-sm font-medium">No approved requests yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Be the first to share a prayer need with the community.
+              Check back soon for community prayer requests.
             </p>
           </div>
-          <SubmitPrayerRequestButton variant="outline" className="rounded-full" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
       {requests.map((request) => (
-        <PrayerRequestCard key={request.id} request={request} />
+        <PrayerWallCard key={request.id} request={request} />
       ))}
     </div>
   );

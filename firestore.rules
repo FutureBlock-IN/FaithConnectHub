@@ -84,6 +84,16 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /donationCampaigns/{campaignId} {
+      allow read: if isAdmin() || resource.data.status == "active";
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /donations/{donationId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /prayerRequests/{requestId} {
       allow read: if resource.data.status == "approved";
       allow read: if isAdmin();

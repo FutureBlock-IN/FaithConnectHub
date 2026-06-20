@@ -12,6 +12,10 @@ export const publicRoutes = [
   "/forgot-password",
   "/prayer-requests",
   "/events",
+  "/donations",
+  "/songs",
+  "/sermons",
+  "/articles",
 ];
 
 /**

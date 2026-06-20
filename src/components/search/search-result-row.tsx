@@ -1,3 +1,5 @@
+"use client";
+
 import { ChevronRight } from "lucide-react";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";

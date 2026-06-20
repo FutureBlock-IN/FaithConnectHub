@@ -189,6 +189,10 @@ export function filterPublishedSongs(songs: FirebaseSong[]): FirebaseSong[] {
   return songs.filter(isSongPublished);
 }
 
+export function sortSongsByLatest(songs: FirebaseSong[]): FirebaseSong[] {
+  return [...songs].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 /** Writes canonical + legacy fields so older clients keep working. */
 export function toSongFirestorePayload(
   input: CreateSongInput | UpdateSongInput
