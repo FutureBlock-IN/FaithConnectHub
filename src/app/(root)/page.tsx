@@ -42,13 +42,18 @@ export default async function HomePage() {
         sermons={sermons}
         articles={articles}
         songsTabExtra={
-          <PrayerWallSectionClient
-            initialRequests={latestPrayerRequests}
-            limit={3}
-          />
+          <>
+            <PrayerWallSectionClient
+              initialRequests={latestPrayerRequests}
+              limit={3}
+            />
+            <UpcomingEventsSectionClient
+              initialEvents={upcomingEvents}
+              limit={3}
+            />
+          </>
         }
       />
-      <UpcomingEventsSectionClient initialEvents={upcomingEvents} limit={3} />
     </div>
   );
 }
