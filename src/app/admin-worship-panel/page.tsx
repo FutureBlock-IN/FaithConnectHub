@@ -11,16 +11,19 @@ import {
   Church,
   FileText,
   HeartHandshake,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
+import type { FirebaseEvent } from "@/types/firebase-event";
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { ArticleList } from "@/components/admin/article-list";
+import { EventList } from "@/components/admin/event-list";
 import { PrayerRequestList } from "@/components/admin/prayer-request-list";
 import { PrayerRequestsDashboardCard } from "@/components/admin/prayer-requests-dashboard-card";
 import { SermonList } from "@/components/admin/sermon-list";
@@ -30,6 +33,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
+import {
+  EVENTS_COLLECTION,
+  normalizeEventFromFirestore,
+} from "@/lib/event-firestore";
 import { normalizePrayerRequestFromFirestore } from "@/lib/prayer-request-firestore";
 import {
   LEGACY_SERMONS_COLLECTION,
@@ -55,11 +62,21 @@ const AddArticleModal = dynamic(
     ),
   { ssr: false }
 );
+const AddEventModal = dynamic(
+  () =>
+    import("@/components/admin/add-event-modal").then((mod) => mod.AddEventModal),
+  { ssr: false }
+);
 
-type AdminTab = "songs" | "sermons" | "articles" | "prayers";
+type AdminTab = "songs" | "sermons" | "articles" | "events" | "prayers";
 
 function parseAdminTab(value: string | null): AdminTab {
-  if (value === "sermons" || value === "articles" || value === "prayers") {
+  if (
+    value === "sermons" ||
+    value === "articles" ||
+    value === "events" ||
+    value === "prayers"
+  ) {
     return value;
   }
   return "songs";
@@ -78,6 +95,7 @@ export default function AdminPage() {
   const [songs, setSongs] = useState<FirebaseSong[]>([]);
   const [sermons, setSermons] = useState<FirebaseSermon[]>([]);
   const [articles, setArticles] = useState<FirebaseArticle[]>([]);
+  const [events, setEvents] = useState<FirebaseEvent[]>([]);
   const [prayerRequests, setPrayerRequests] = useState<FirebasePrayerRequest[]>(
     []
   );
@@ -85,17 +103,20 @@ export default function AdminPage() {
   const [songsLoading, setSongsLoading] = useState(true);
   const [sermonsLoading, setSermonsLoading] = useState(true);
   const [articlesLoading, setArticlesLoading] = useState(true);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [prayersLoading, setPrayersLoading] = useState(true);
 
   const [songModalOpen, setSongModalOpen] = useState(false);
   const [sermonModalOpen, setSermonModalOpen] = useState(false);
   const [articleModalOpen, setArticleModalOpen] = useState(false);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
 
   const [selectedSong, setSelectedSong] = useState<FirebaseSong | null>(null);
   const [selectedSermon, setSelectedSermon] =
     useState<FirebaseSermon | null>(null);
   const [selectedArticle, setSelectedArticle] =
     useState<FirebaseArticle | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<FirebaseEvent | null>(null);
 
   const [loadedSongsTab, setLoadedSongsTab] = useState(
     () => parseAdminTab(searchParams.get("tab")) === "songs"
@@ -106,11 +127,15 @@ export default function AdminPage() {
   const [loadedArticlesTab, setLoadedArticlesTab] = useState(
     () => parseAdminTab(searchParams.get("tab")) === "articles"
   );
+  const [loadedEventsTab, setLoadedEventsTab] = useState(
+    () => parseAdminTab(searchParams.get("tab")) === "events"
+  );
 
   useEffect(() => {
     if (activeTab === "songs") setLoadedSongsTab(true);
     if (activeTab === "sermons") setLoadedSermonsTab(true);
     if (activeTab === "articles") setLoadedArticlesTab(true);
+    if (activeTab === "events") setLoadedEventsTab(true);
   }, [activeTab]);
 
   useEffect(() => {
@@ -248,6 +273,34 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [loadedArticlesTab]);
 
+  useEffect(() => {
+    if (!loadedEventsTab) return;
+
+    const eventsQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      orderBy("eventDate", "desc")
+    );
+    const unsubscribe = onSnapshot(
+      eventsQuery,
+      (snapshot) => {
+        setEvents(
+          snapshot.docs.map((docSnap) =>
+            normalizeEventFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          )
+        );
+        setEventsLoading(false);
+      },
+      () => {
+        toast.error("Unable to sync events");
+        setEventsLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [loadedEventsTab]);
+
   const publishedSongs = useMemo(
     () => songs.filter((s) => s.published !== false).length,
     [songs]
@@ -259,6 +312,10 @@ export default function AdminPage() {
   const publishedArticles = useMemo(
     () => articles.filter((a) => a.isPublished).length,
     [articles]
+  );
+  const publishedEvents = useMemo(
+    () => events.filter((event) => event.status === "published").length,
+    [events]
   );
   const pendingPrayers = useMemo(
     () => prayerRequests.filter((request) => request.status === "pending").length,
@@ -283,9 +340,12 @@ export default function AdminPage() {
     } else if (activeTab === "sermons") {
       setSelectedSermon(null);
       setSermonModalOpen(true);
-    } else {
+    } else if (activeTab === "articles") {
       setSelectedArticle(null);
       setArticleModalOpen(true);
+    } else if (activeTab === "events") {
+      setSelectedEvent(null);
+      setEventModalOpen(true);
     }
   }
 
@@ -296,7 +356,9 @@ export default function AdminPage() {
         ? "Add Sermon"
         : activeTab === "articles"
           ? "Add Article"
-          : "Prayer Requests";
+          : activeTab === "events"
+            ? "Create Event"
+            : "Prayer Requests";
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
@@ -315,7 +377,7 @@ export default function AdminPage() {
                 Worship Admin
               </h1>
               <p className="text-xs text-muted-foreground">
-                Manage songs, sermons, articles, and prayer requests
+                Manage songs, sermons, articles, events, and prayer requests
               </p>
             </div>
           </div>
@@ -347,7 +409,7 @@ export default function AdminPage() {
         onValueChange={(v) => setActiveTab(v as AdminTab)}
         className="w-full space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-4 sm:w-auto sm:inline-flex">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-5 sm:w-auto sm:inline-flex">
           <TabsTrigger value="songs" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Songs
           </TabsTrigger>
@@ -356,6 +418,9 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="articles" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Articles
+          </TabsTrigger>
+          <TabsTrigger value="events" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
+            Events
           </TabsTrigger>
           <TabsTrigger value="prayers" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Prayer Requests
@@ -438,6 +503,51 @@ export default function AdminPage() {
           ) : null}
         </TabsContent>
 
+        <TabsContent value="events" className="mt-0 space-y-4">
+          {activeTab === "events" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                {[
+                  {
+                    icon: <CalendarDays className="h-4 w-4" />,
+                    label: "Total Events",
+                    value: eventsLoading ? "—" : events.length,
+                  },
+                  {
+                    icon: <CalendarDays className="h-4 w-4" />,
+                    label: "Published",
+                    value: eventsLoading ? "—" : publishedEvents,
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-card px-4 py-4 shadow-sm"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {stat.icon}
+                    </div>
+                    <p className="font-heading text-xl font-bold sm:text-2xl">
+                      {stat.value}
+                    </p>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <EventList
+                events={events}
+                loading={eventsLoading}
+                onEdit={(event) => {
+                  setSelectedEvent(event);
+                  setEventModalOpen(true);
+                }}
+                onDelete={() => {}}
+              />
+            </>
+          ) : null}
+        </TabsContent>
+
         <TabsContent value="prayers" className="mt-0 space-y-4">
           {activeTab === "prayers" ?
             <>
@@ -501,6 +611,12 @@ export default function AdminPage() {
         onClose={() => { setArticleModalOpen(false); setSelectedArticle(null); }}
         onSave={() => { setArticleModalOpen(false); setSelectedArticle(null); }}
         initialArticle={selectedArticle}
+      />
+      <AddEventModal
+        isOpen={eventModalOpen}
+        onClose={() => { setEventModalOpen(false); setSelectedEvent(null); }}
+        onSave={() => { setEventModalOpen(false); setSelectedEvent(null); }}
+        initialEvent={selectedEvent}
       />
     </div>
   );
