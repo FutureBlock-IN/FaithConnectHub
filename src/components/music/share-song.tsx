@@ -23,7 +23,7 @@ type ShareSongButtonProps = {
 };
 
 const secondaryActionClass =
-  "h-10 gap-2 rounded-full border border-white/20 bg-transparent px-5 text-sm font-medium text-white hover:border-white hover:bg-white/10";
+  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-transparent px-3 text-xs font-medium text-white hover:border-white hover:bg-white/10 sm:px-3.5 sm:text-sm";
 
 export function ShareSongButton({
   songTitle,
@@ -75,10 +75,10 @@ export function ShareSongButton({
       <Button
         type="button"
         variant="ghost"
-        className={cn(secondaryActionClass, className)}
+        className={cn(className ?? secondaryActionClass)}
         onClick={handleNativeShare}
       >
-        <Share2 className="size-4" />
+        <Share2 className="size-3.5" />
         Share
       </Button>
     );
@@ -91,9 +91,9 @@ export function ShareSongButton({
         <Button
           type="button"
           variant="ghost"
-          className={cn(secondaryActionClass, className)}
+          className={cn(className ?? secondaryActionClass)}
         >
-          <Share2 className="size-4" />
+          <Share2 className="size-3.5" />
           Share
         </Button>
       </DropdownMenuTrigger>

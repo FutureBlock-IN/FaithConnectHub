@@ -68,11 +68,10 @@ export function ContentAuthDialogHost() {
       <DialogContent className="w-[calc(100vw-2rem)] max-w-md border-border/50 bg-card sm:rounded-2xl">
         <DialogHeader className="space-y-3 text-center sm:text-left">
           <DialogTitle className="font-heading text-xl font-bold">
-            Sign in to continue
+            Sign in Required
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed">
-            Please sign in or create an account to access worship songs,
-            articles, and sermons.
+            Please sign in to access FaithConnectHub content.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,7 +99,7 @@ export function ContentAuthDialogHost() {
 
           <Button asChild variant="outline" className="w-full border-border/60">
             <Link href={signUpHref} onClick={closeDialog}>
-              Sign Up
+              Create Account
             </Link>
           </Button>
         </div>

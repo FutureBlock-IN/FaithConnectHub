@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
   Plus,
@@ -9,18 +10,19 @@ import {
   UploadCloud,
   Church,
   FileText,
+  HeartHandshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
+import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
-import { AddArticleModal } from "@/components/admin/add-article-modal";
-import { AddSermonModal } from "@/components/admin/add-sermon-modal";
-import { AddMusicModal } from "@/components/admin/add-music-modal";
 import { ArticleList } from "@/components/admin/article-list";
+import { PrayerRequestList } from "@/components/admin/prayer-request-list";
+import { PrayerRequestsDashboardCard } from "@/components/admin/prayer-requests-dashboard-card";
 import { SermonList } from "@/components/admin/sermon-list";
 import { MusicList } from "@/components/admin/music-list";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
+import { normalizePrayerRequestFromFirestore } from "@/lib/prayer-request-firestore";
 import {
   LEGACY_SERMONS_COLLECTION,
   SERMONS_COLLECTION,
@@ -35,10 +38,30 @@ import {
   normalizeSermonFromFirestore,
 } from "@/lib/sermon-firestore";
 
-type AdminTab = "songs" | "sermons" | "articles";
+const AddMusicModal = dynamic(
+  () =>
+    import("@/components/admin/add-music-modal").then((mod) => mod.AddMusicModal),
+  { ssr: false }
+);
+const AddSermonModal = dynamic(
+  () =>
+    import("@/components/admin/add-sermon-modal").then((mod) => mod.AddSermonModal),
+  { ssr: false }
+);
+const AddArticleModal = dynamic(
+  () =>
+    import("@/components/admin/add-article-modal").then(
+      (mod) => mod.AddArticleModal
+    ),
+  { ssr: false }
+);
+
+type AdminTab = "songs" | "sermons" | "articles" | "prayers";
 
 function parseAdminTab(value: string | null): AdminTab {
-  if (value === "sermons" || value === "articles") return value;
+  if (value === "sermons" || value === "articles" || value === "prayers") {
+    return value;
+  }
   return "songs";
 }
 
@@ -55,10 +78,14 @@ export default function AdminPage() {
   const [songs, setSongs] = useState<FirebaseSong[]>([]);
   const [sermons, setSermons] = useState<FirebaseSermon[]>([]);
   const [articles, setArticles] = useState<FirebaseArticle[]>([]);
+  const [prayerRequests, setPrayerRequests] = useState<FirebasePrayerRequest[]>(
+    []
+  );
 
   const [songsLoading, setSongsLoading] = useState(true);
   const [sermonsLoading, setSermonsLoading] = useState(true);
   const [articlesLoading, setArticlesLoading] = useState(true);
+  const [prayersLoading, setPrayersLoading] = useState(true);
 
   const [songModalOpen, setSongModalOpen] = useState(false);
   const [sermonModalOpen, setSermonModalOpen] = useState(false);
@@ -85,6 +112,32 @@ export default function AdminPage() {
     if (activeTab === "sermons") setLoadedSermonsTab(true);
     if (activeTab === "articles") setLoadedArticlesTab(true);
   }, [activeTab]);
+
+  useEffect(() => {
+    const prayersQuery = query(
+      collection(db, "prayerRequests"),
+      orderBy("createdAt", "desc")
+    );
+    const unsubscribe = onSnapshot(
+      prayersQuery,
+      (snapshot) => {
+        setPrayerRequests(
+          snapshot.docs.map((docSnap) =>
+            normalizePrayerRequestFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          )
+        );
+        setPrayersLoading(false);
+      },
+      () => {
+        toast.error("Unable to sync prayer requests");
+        setPrayersLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!loadedSongsTab) return;
@@ -195,11 +248,35 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [loadedArticlesTab]);
 
-  const publishedSongs = songs.filter((s) => s.published !== false).length;
-  const publishedSermons = sermons.filter((s) => s.isPublished).length;
-  const publishedArticles = articles.filter((a) => a.isPublished).length;
+  const publishedSongs = useMemo(
+    () => songs.filter((s) => s.published !== false).length,
+    [songs]
+  );
+  const publishedSermons = useMemo(
+    () => sermons.filter((s) => s.isPublished).length,
+    [sermons]
+  );
+  const publishedArticles = useMemo(
+    () => articles.filter((a) => a.isPublished).length,
+    [articles]
+  );
+  const pendingPrayers = useMemo(
+    () => prayerRequests.filter((request) => request.status === "pending").length,
+    [prayerRequests]
+  );
+  const approvedPrayers = useMemo(
+    () => prayerRequests.filter((request) => request.status === "approved").length,
+    [prayerRequests]
+  );
+  const songsWithLyrics = useMemo(
+    () =>
+      songs.filter((s) => s.originalLyrics?.trim() || s.lyrics?.trim()).length,
+    [songs]
+  );
 
   function getAddHandler() {
+    if (activeTab === "prayers") return;
+
     if (activeTab === "songs") {
       setSelectedSong(null);
       setSongModalOpen(true);
@@ -217,7 +294,9 @@ export default function AdminPage() {
       ? "Add Song"
       : activeTab === "sermons"
         ? "Add Sermon"
-        : "Add Article";
+        : activeTab === "articles"
+          ? "Add Article"
+          : "Prayer Requests";
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
@@ -236,28 +315,39 @@ export default function AdminPage() {
                 Worship Admin
               </h1>
               <p className="text-xs text-muted-foreground">
-                Manage songs, sermons, and articles
+                Manage songs, sermons, articles, and prayer requests
               </p>
             </div>
           </div>
 
-          <Button
-            size="sm"
-            onClick={getAddHandler}
-            className="gap-2 rounded-full px-5 font-semibold shadow"
-          >
-            <Plus className="h-4 w-4" />
-            {addLabel}
-          </Button>
+          {activeTab !== "prayers" ?
+            <Button
+              size="sm"
+              onClick={getAddHandler}
+              className="gap-2 rounded-full px-5 font-semibold shadow"
+            >
+              <Plus className="h-4 w-4" />
+              {addLabel}
+            </Button>
+          : null}
         </div>
       </div>
+
+      <PrayerRequestsDashboardCard
+        total={prayerRequests.length}
+        pending={pendingPrayers}
+        approved={approvedPrayers}
+        loading={prayersLoading}
+        active={activeTab === "prayers"}
+        onSelect={() => setActiveTab("prayers")}
+      />
 
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as AdminTab)}
         className="w-full space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:w-auto sm:inline-flex">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-4 sm:w-auto sm:inline-flex">
           <TabsTrigger value="songs" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Songs
           </TabsTrigger>
@@ -266,6 +356,9 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="articles" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Articles
+          </TabsTrigger>
+          <TabsTrigger value="prayers" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
+            Prayer Requests
           </TabsTrigger>
         </TabsList>
 
@@ -276,7 +369,7 @@ export default function AdminPage() {
             {[
               { icon: <ListMusic className="h-4 w-4" />, label: "Total Songs", value: songsLoading ? "—" : songs.length },
               { icon: <UploadCloud className="h-4 w-4" />, label: "Published", value: songsLoading ? "—" : publishedSongs },
-              { icon: <Music2 className="h-4 w-4" />, label: "With Lyrics", value: songsLoading ? "—" : songs.filter((s) => s.originalLyrics?.trim() || s.lyrics?.trim()).length },
+              { icon: <Music2 className="h-4 w-4" />, label: "With Lyrics", value: songsLoading ? "—" : songsWithLyrics },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-card px-4 py-4 shadow-sm">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">{stat.icon}</div>
@@ -343,6 +436,51 @@ export default function AdminPage() {
           />
             </>
           ) : null}
+        </TabsContent>
+
+        <TabsContent value="prayers" className="mt-0 space-y-4">
+          {activeTab === "prayers" ?
+            <>
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                {[
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Total Requests",
+                    value: prayersLoading ? "—" : prayerRequests.length,
+                  },
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Pending",
+                    value: prayersLoading ? "—" : pendingPrayers,
+                  },
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Approved",
+                    value: prayersLoading ? "—" : approvedPrayers,
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-card px-4 py-4 shadow-sm"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {stat.icon}
+                    </div>
+                    <p className="font-heading text-xl font-bold sm:text-2xl">
+                      {stat.value}
+                    </p>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <PrayerRequestList
+                requests={prayerRequests}
+                loading={prayersLoading}
+              />
+            </>
+          : null}
         </TabsContent>
       </Tabs>
 

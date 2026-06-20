@@ -1,7 +1,7 @@
 import { WorshipCatalogProvider } from "@/context/worship-catalog-context";
 import { getWorshipCatalogCached } from "@/lib/cached-worship-data";
 
-import { SearchMenu } from "./search-menu";
+import { SearchMenuClient } from "./search-menu-client";
 import { WorshipTopItemsClient } from "./firebase-worship-top-items";
 
 type NavbarSearchSectionProps = {
@@ -13,7 +13,7 @@ export async function NavbarSearchSection({ className }: NavbarSearchSectionProp
 
   return (
     <WorshipCatalogProvider catalog={catalog}>
-      <SearchMenu
+      <SearchMenuClient
         className={className}
         topSearch={
           <WorshipTopItemsClient

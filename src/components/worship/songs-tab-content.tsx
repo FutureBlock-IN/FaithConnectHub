@@ -9,6 +9,7 @@ import {
   songsAlbumGridClassName,
 } from "@/components/music/firebase-song-card";
 import { SongsTabHeader } from "@/components/worship/songs-tab-header";
+import { useRealtimeSongs } from "@/hooks/use-worship-realtime";
 import { filterPublishedSongs } from "@/lib/song-firestore";
 
 type SongsTabContentProps = {
@@ -16,9 +17,10 @@ type SongsTabContentProps = {
 };
 
 export function SongsTabContent({ initialSongs }: SongsTabContentProps) {
+  const songs = useRealtimeSongs(initialSongs);
   const visibleSongs = useMemo(
-    () => filterPublishedSongs(initialSongs),
-    [initialSongs]
+    () => filterPublishedSongs(songs),
+    [songs]
   );
 
   if (visibleSongs.length === 0) {

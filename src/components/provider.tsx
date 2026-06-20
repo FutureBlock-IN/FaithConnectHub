@@ -16,7 +16,12 @@ type Props = {
 };
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: Infinity } },
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+    },
+  },
 });
 
 export default function Providers({ children, theme }: Props) {

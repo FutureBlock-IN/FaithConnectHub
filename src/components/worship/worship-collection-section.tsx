@@ -10,7 +10,7 @@ import { ArticlesTabContent } from "@/components/worship/articles-tab-content";
 import { SermonsTabContent } from "@/components/worship/sermons-tab-content";
 import { SongsTabContent } from "@/components/worship/songs-tab-content";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useWorshipCollectionTab } from "@/hooks/use-store";
+import { useEffectiveWorshipCollectionTab } from "@/hooks/use-effective-worship-collection-tab";
 
 export type WorshipCollectionTab = "songs" | "sermons" | "articles";
 
@@ -18,14 +18,26 @@ type WorshipCollectionSectionProps = {
   songs: FirebaseSong[];
   sermons: FirebaseSermon[];
   articles: FirebaseArticle[];
+  /**
+   * Optional sections rendered only when the matching tab is active. This keeps
+   * each tab a focused experience and lets us add tab-specific content (e.g. the
+   * Prayer Wall on Songs) without leaking into the other tabs.
+   */
+  songsTabExtra?: React.ReactNode;
+  sermonsTabExtra?: React.ReactNode;
+  articlesTabExtra?: React.ReactNode;
 };
 
 export function WorshipCollectionSection({
   songs,
   sermons,
   articles,
+  songsTabExtra,
+  sermonsTabExtra,
+  articlesTabExtra,
 }: WorshipCollectionSectionProps) {
-  const [activeTab, setActiveTab] = useWorshipCollectionTab();
+  const { activeTab, setActiveTab, isRouteLocked } =
+    useEffectiveWorshipCollectionTab();
 
   return (
     <section className="w-full space-y-5">
@@ -40,9 +52,11 @@ export function WorshipCollectionSection({
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) =>
-          setActiveTab(value as WorshipCollectionTab)
-        }
+        onValueChange={(value) => {
+          if (!isRouteLocked) {
+            setActiveTab(value as WorshipCollectionTab);
+          }
+        }}
         className="w-full"
       >
         <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:w-auto sm:inline-flex">
@@ -68,19 +82,28 @@ export function WorshipCollectionSection({
 
         <TabsContent value="songs" className="mt-5 focus-visible:outline-none">
           {activeTab === "songs" ? (
-            <SongsTabContent initialSongs={songs} />
+            <div className="space-y-6">
+              {songsTabExtra}
+              <SongsTabContent initialSongs={songs} />
+            </div>
           ) : null}
         </TabsContent>
 
         <TabsContent value="sermons" className="mt-5 focus-visible:outline-none">
           {activeTab === "sermons" ? (
-            <SermonsTabContent initialSermons={sermons} />
+            <div className="space-y-6">
+              {sermonsTabExtra}
+              <SermonsTabContent initialSermons={sermons} />
+            </div>
           ) : null}
         </TabsContent>
 
         <TabsContent value="articles" className="mt-5 focus-visible:outline-none">
           {activeTab === "articles" ? (
-            <ArticlesTabContent initialArticles={articles} />
+            <div className="space-y-6">
+              {articlesTabExtra}
+              <ArticlesTabContent initialArticles={articles} />
+            </div>
           ) : null}
         </TabsContent>
       </Tabs>

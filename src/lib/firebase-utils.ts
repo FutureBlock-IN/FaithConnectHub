@@ -14,6 +14,29 @@ export function isRecoverableAdminError(error: unknown): boolean {
   );
 }
 
+export function isFirebasePermissionError(error: unknown): boolean {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "");
+  return (
+    message.includes("PERMISSION_DENIED") ||
+    message.includes("Missing or insufficient permissions") ||
+    message.includes("permission")
+  );
+}
+
+export function isFirebaseIndexError(error: unknown): boolean {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "");
+  return (
+    message.includes("FAILED_PRECONDITION") ||
+    message.includes("requires an index")
+  );
+}
+
+export function getFirebaseErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? "");
+}
+
 export function toMillis(value: unknown): number {
   if (
     value &&

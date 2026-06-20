@@ -3,6 +3,60 @@ rules_version = '2';
 // Deploy: firebase deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == "futureblock07@gmail.com" ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+        )
+      );
+    }
+
+    function isValidPrayerRequestCreate() {
+      return request.resource.data.keys().hasAll([
+        "name",
+        "title",
+        "request",
+        "isAnonymous",
+        "status",
+        "prayerCount",
+        "createdAt",
+        "updatedAt"
+      ])
+        && request.resource.data.name is string
+        && request.resource.data.title is string
+        && request.resource.data.request is string
+        && request.resource.data.isAnonymous is bool
+        && request.resource.data.status == "pending"
+        && request.resource.data.prayerCount == 0
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.request.size() > 0
+        && request.resource.data.request.size() <= 1000;
+    }
+
+    function isPrayerCountIncrement() {
+      return resource.data.status == "approved"
+        && request.resource.data.status == "approved"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "prayerCount",
+          "updatedAt"
+        ])
+        && request.resource.data.prayerCount == resource.data.prayerCount + 1;
+    }
+
+    function isPrayerCountDecrement() {
+      return resource.data.status == "approved"
+        && request.resource.data.status == "approved"
+        && resource.data.prayerCount > 0
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "prayerCount",
+          "updatedAt"
+        ])
+        && request.resource.data.prayerCount == resource.data.prayerCount - 1;
+    }
+
     match /songs/{songId} {
       allow read: if true;
       allow create, update, delete: if true;
@@ -22,6 +76,14 @@ service cloud.firestore {
     match /articles/{articleId} {
       allow read: if true;
       allow create, update, delete: if true;
+    }
+
+    match /prayerRequests/{requestId} {
+      allow read: if resource.data.status == "approved";
+      allow read: if isAdmin();
+      allow create: if request.auth != null && isValidPrayerRequestCreate();
+      allow update: if isAdmin() || isPrayerCountIncrement() || isPrayerCountDecrement();
+      allow delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {
