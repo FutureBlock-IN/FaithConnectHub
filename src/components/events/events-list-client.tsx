@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 
 import type { FirebaseEvent } from "@/types/firebase-event";
@@ -16,7 +17,10 @@ export function EventsListClient({
   initialUpcoming,
   initialPast,
 }: EventsListClientProps) {
-  const initialCombined = [...initialUpcoming, ...initialPast];
+  const initialCombined = useMemo(
+    () => [...initialUpcoming, ...initialPast],
+    [initialUpcoming, initialPast]
+  );
   const { grouped, loading } = usePublishedEvents(initialCombined);
   const { upcoming, past } = grouped;
 

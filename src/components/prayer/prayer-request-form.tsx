@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useActiveChurchScope } from "@/context/active-church-context";
 import { createPrayerRequest } from "@/lib/prayer-request-mutations";
 import {
   PRAYER_REQUEST_MAX,
@@ -52,6 +53,7 @@ export function PrayerRequestForm({
 }: PrayerRequestFormProps) {
   const router = useRouter();
   const { authUser, profile, loading } = useFirebaseAuth();
+  const { churchId, isLoading: churchLoading } = useActiveChurchScope();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -83,6 +85,11 @@ export function PrayerRequestForm({
       return;
     }
 
+    if (!churchId) {
+      setSubmitError("No church is configured yet. Please try again later.");
+      return;
+    }
+
     setSubmitError(null);
 
     try {
@@ -90,7 +97,7 @@ export function PrayerRequestForm({
         ? ""
         : values.name.trim() || getDefaultName(profile, authUser);
 
-      await createPrayerRequest({
+      await createPrayerRequest(churchId, {
         ...values,
         name: resolvedName,
       });
@@ -100,7 +107,7 @@ export function PrayerRequestForm({
     }
   }
 
-  if (loading) {
+  if (loading || churchLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />

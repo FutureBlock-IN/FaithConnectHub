@@ -2,6 +2,7 @@ import { HomeAdminFab } from "@/components/home-admin-fab";
 import { HomeHeroSection } from "@/components/home/home-hero-section";
 import { HomeSongsSection } from "@/components/home/home-songs-section";
 import { siteConfig } from "@/config/site";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getPublishedSongsCached } from "@/lib/cached-worship-data";
 
 export const revalidate = 60;
@@ -24,12 +25,13 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const songs = await getPublishedSongsCached();
+  const { churchId, church } = await getPageChurchContext();
+  const songs = await getPublishedSongsCached(churchId);
 
   return (
-    <div className="space-y-8 sm:space-y-10">
+    <div className="space-y-4 sm:space-y-8 md:space-y-10">
       <HomeAdminFab />
-      <HomeHeroSection />
+      <HomeHeroSection church={church} />
       <HomeSongsSection initialSongs={songs} />
     </div>
   );

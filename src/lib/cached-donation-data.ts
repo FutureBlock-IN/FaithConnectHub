@@ -8,16 +8,27 @@ import {
 
 const REVALIDATE_SECONDS = 60;
 
-export const getActiveDonationCampaignsCached = unstable_cache(
-  async () => getActiveDonationCampaigns(),
-  ["active-donation-campaigns"],
-  { revalidate: REVALIDATE_SECONDS, tags: ["donations"] }
-);
-
-export const getDonationCampaignByIdCached = cache(async (campaignId: string) => {
+export async function getActiveDonationCampaignsCached(churchId: string) {
   return unstable_cache(
-    async () => getDonationCampaignById(campaignId),
-    ["donation-campaign-by-id", campaignId],
-    { revalidate: REVALIDATE_SECONDS, tags: [`donation-campaign-${campaignId}`] }
+    async () => getActiveDonationCampaigns(churchId),
+    ["active-donation-campaigns", churchId],
+    { revalidate: REVALIDATE_SECONDS, tags: ["donations", `church-${churchId}`] }
   )();
-});
+}
+
+export const getDonationCampaignByIdCached = cache(
+  async (churchId: string, campaignId: string) => {
+    return unstable_cache(
+      async () => {
+        const campaign = await getDonationCampaignById(campaignId);
+        if (!campaign || campaign.churchId !== churchId) return null;
+        return campaign;
+      },
+      ["donation-campaign-by-id", churchId, campaignId],
+      {
+        revalidate: REVALIDATE_SECONDS,
+        tags: [`donation-campaign-${campaignId}`, `church-${churchId}`],
+      }
+    )();
+  }
+);

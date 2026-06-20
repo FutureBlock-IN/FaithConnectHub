@@ -19,6 +19,7 @@ import {
   normalizeDonationCampaignFromFirestore,
   normalizeDonationFromFirestore,
 } from "./donation-firestore";
+import { filterRecordsByChurch } from "./church-scope";
 import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
 import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
@@ -186,14 +187,19 @@ async function fetchActiveCampaigns(): Promise<FirebaseDonationCampaign[]> {
   }
 }
 
-export async function getDonationCampaigns(): Promise<FirebaseDonationCampaign[]> {
-  return fetchAllCampaigns();
+export async function getDonationCampaigns(
+  churchId: string
+): Promise<FirebaseDonationCampaign[]> {
+  return filterRecordsByChurch(await fetchAllCampaigns(), churchId);
 }
 
-export async function getActiveDonationCampaigns(): Promise<
-  FirebaseDonationCampaign[]
-> {
-  return filterActiveCampaigns(await fetchActiveCampaigns());
+export async function getActiveDonationCampaigns(
+  churchId: string
+): Promise<FirebaseDonationCampaign[]> {
+  return filterRecordsByChurch(
+    filterActiveCampaigns(await fetchActiveCampaigns()),
+    churchId
+  );
 }
 
 export async function getDonationCampaignById(

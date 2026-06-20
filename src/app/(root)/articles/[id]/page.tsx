@@ -8,6 +8,7 @@ import {
   getArticleNeighbors,
   getRelatedArticles,
 } from "@/lib/article-utils";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import {
   getArticleByIdCached,
   getPublishedArticlesCached,
@@ -22,7 +23,8 @@ type ArticlePageProps = {
 
 export async function generateMetadata({ params }: ArticlePageProps) {
   const { id } = await params;
-  const article = await getArticleByIdCached(decodeURIComponent(id));
+  const { churchId } = await getPageChurchContext();
+  const article = await getArticleByIdCached(churchId, decodeURIComponent(id));
 
   if (!article || !article.isPublished) {
     return { title: "Article Not Found" };
@@ -53,9 +55,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
+  const { churchId } = await getPageChurchContext();
   const [article, allPublished] = await Promise.all([
-    getArticleByIdCached(decodedId),
-    getPublishedArticlesCached(),
+    getArticleByIdCached(churchId, decodedId),
+    getPublishedArticlesCached(churchId),
   ]);
 
   if (!article || !article.isPublished) {

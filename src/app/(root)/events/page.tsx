@@ -1,4 +1,5 @@
 import { EventsListClient } from "@/components/events/events-list-client";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getPublishedEventsGroupedCached } from "@/lib/cached-event-data";
 import { siteConfig } from "@/config/site";
 
@@ -10,7 +11,8 @@ export const metadata = {
 };
 
 export default async function EventsPage() {
-  const { upcoming, past } = await getPublishedEventsGroupedCached();
+  const { churchId } = await getPageChurchContext();
+  const { upcoming, past } = await getPublishedEventsGroupedCached(churchId);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8">

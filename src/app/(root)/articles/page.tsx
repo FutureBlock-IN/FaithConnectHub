@@ -1,5 +1,6 @@
 import { ArticlesTabContent } from "@/components/worship/articles-tab-content";
 import { siteConfig } from "@/config/site";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getPublishedArticlesCached } from "@/lib/cached-worship-data";
 
 export const revalidate = 60;
@@ -10,7 +11,8 @@ export const metadata = {
 };
 
 export default async function ArticlesPage() {
-  const articles = await getPublishedArticlesCached();
+  const { churchId } = await getPageChurchContext();
+  const articles = await getPublishedArticlesCached(churchId);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8">

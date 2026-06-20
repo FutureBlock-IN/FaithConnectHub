@@ -77,6 +77,7 @@ type AddArticleModalProps = {
   onClose: () => void;
   onSave: () => void;
   initialArticle?: FirebaseArticle | null;
+  churchId: string;
 };
 
 function parseTags(tagsInput?: string): string[] {
@@ -111,6 +112,7 @@ export function AddArticleModal({
   onClose,
   onSave,
   initialArticle,
+  churchId,
 }: AddArticleModalProps) {
   const { authUser } = useFirebaseAuth();
   const [coverFile, setCoverFile] = useState<File | undefined>();
@@ -230,6 +232,7 @@ export function AddArticleModal({
       } else {
         const articleId = await createArticle({
           ...payload,
+          churchId,
           coverImage: "",
           createdBy,
         });

@@ -24,6 +24,7 @@ import {
   normalizeEventFromFirestore,
   splitEventsBySchedule,
 } from "./event-firestore";
+import { filterRecordsByChurch } from "./church-scope";
 
 async function fetchEventsAdmin(): Promise<FirebaseEvent[]> {
   const adminDb = getAdminDb();
@@ -189,24 +190,27 @@ async function fetchPublishedEvents(): Promise<FirebaseEvent[]> {
   }
 }
 
-export async function getEvents(): Promise<FirebaseEvent[]> {
-  return fetchAllEvents();
+export async function getEvents(churchId: string): Promise<FirebaseEvent[]> {
+  return filterRecordsByChurch(await fetchAllEvents(), churchId);
 }
 
-export async function getPublishedEvents(): Promise<FirebaseEvent[]> {
-  return fetchPublishedEvents();
+export async function getPublishedEvents(
+  churchId: string
+): Promise<FirebaseEvent[]> {
+  return filterRecordsByChurch(await fetchPublishedEvents(), churchId);
 }
 
 export async function getUpcomingPublishedEvents(
+  churchId: string,
   limit = 3
 ): Promise<FirebaseEvent[]> {
-  const published = await fetchPublishedEvents();
+  const published = await getPublishedEvents(churchId);
   const { upcoming } = splitEventsBySchedule(filterPublishedEvents(published));
   return upcoming.slice(0, limit);
 }
 
-export async function getPublishedEventsGrouped() {
-  const published = filterPublishedEvents(await fetchPublishedEvents());
+export async function getPublishedEventsGrouped(churchId: string) {
+  const published = filterPublishedEvents(await getPublishedEvents(churchId));
   return splitEventsBySchedule(published);
 }
 

@@ -6,6 +6,7 @@ import type {
 } from "@/types/firebase-event";
 import { EVENT_TYPES } from "@/types/firebase-event";
 
+import { resolveDocumentChurchId } from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 export const EVENTS_COLLECTION = "events";
@@ -30,6 +31,7 @@ export function normalizeEventFromFirestore(
 ): FirebaseEvent {
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     title: String(data.title ?? "").trim(),
     description: String(data.description ?? "").trim(),
     bannerImage: String(data.bannerImage ?? "").trim() || undefined,
@@ -46,6 +48,7 @@ export function normalizeEventFromFirestore(
 
 export function buildEventCreatePayload(input: CreateEventInput) {
   return {
+    churchId: input.churchId.trim(),
     title: input.title.trim(),
     description: input.description.trim(),
     bannerImage: input.bannerImage?.trim() || "",

@@ -1,4 +1,5 @@
 import { PrayerRequestsListClient } from "@/components/prayer/prayer-requests-list-client";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getApprovedPrayerRequestsCached } from "@/lib/cached-prayer-data";
 import { siteConfig } from "@/config/site";
 
@@ -10,7 +11,8 @@ export const metadata = {
 };
 
 export default async function PrayerRequestsPage() {
-  const requests = await getApprovedPrayerRequestsCached();
+  const { churchId } = await getPageChurchContext();
+  const requests = await getApprovedPrayerRequestsCached(churchId);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8">

@@ -2,25 +2,34 @@
 
 import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { Button } from "@/components/ui/button";
 import { AddMusicModal } from "@/components/admin/add-music-modal";
 import { MusicList } from "@/components/admin/music-list";
+import { useAdminChurchId } from "@/hooks/use-admin-church-id";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 
 export default function AdminPage() {
+  const adminChurchId = useAdminChurchId();
   const [songs, setSongs] = useState<FirebaseSong[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSong, setSelectedSong] = useState<FirebaseSong | null>(null);
 
   useEffect(() => {
+    if (!adminChurchId) {
+      setSongs([]);
+      setLoading(false);
+      return;
+    }
+
     const songsQuery = query(
       collection(db, "songs"),
+      where("churchId", "==", adminChurchId),
       orderBy("createdAt", "desc")
     );
 
@@ -41,7 +50,7 @@ export default function AdminPage() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [adminChurchId]);
 
   function handleAddMusic() {
     console.log("[AdminPage] Opening Add Music modal");
@@ -87,6 +96,7 @@ export default function AdminPage() {
         onClose={handleCloseModal}
         onSave={handleSongSaved}
         initialSong={selectedSong}
+        churchId={adminChurchId ?? ""}
       />
 
       <MusicList

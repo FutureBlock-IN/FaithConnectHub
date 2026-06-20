@@ -51,6 +51,7 @@ type AddDonationCampaignModalProps = {
   onClose: () => void;
   onSave: () => void;
   initialCampaign?: FirebaseDonationCampaign | null;
+  churchId: string;
 };
 
 export function AddDonationCampaignModal({
@@ -58,6 +59,7 @@ export function AddDonationCampaignModal({
   onClose,
   onSave,
   initialCampaign,
+  churchId,
 }: AddDonationCampaignModalProps) {
   const [bannerFile, setBannerFile] = useState<File | undefined>();
   const [bannerPreview, setBannerPreview] = useState("");
@@ -145,7 +147,7 @@ export function AddDonationCampaignModal({
 
         toast.success("Campaign updated successfully");
       } else {
-        const campaignId = await createDonationCampaign(payload);
+        const campaignId = await createDonationCampaign({ ...payload, churchId });
 
         if (bannerFile) {
           const formData = new FormData();

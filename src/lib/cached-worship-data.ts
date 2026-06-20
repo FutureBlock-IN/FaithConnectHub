@@ -14,60 +14,84 @@ import { toSongListItem } from "./song-firestore";
 
 const REVALIDATE_SECONDS = 60;
 
-const cachedPublishedSongs = unstable_cache(
-  async (): Promise<FirebaseSong[]> => {
-    const songs = await getPublishedSongs();
-    return songs.map(toSongListItem);
-  },
-  ["worship-published-songs"],
-  { revalidate: REVALIDATE_SECONDS, tags: ["worship-songs"] }
-);
-
-const cachedPublishedSermons = unstable_cache(
-  async (): Promise<FirebaseSermon[]> => {
-    const sermons = await getPublishedSermons();
-    return sermons.map(toSermonListItem);
-  },
-  ["worship-published-sermons"],
-  { revalidate: REVALIDATE_SECONDS, tags: ["worship-sermons"] }
-);
-
-const cachedPublishedArticles = unstable_cache(
-  async (): Promise<FirebaseArticle[]> => {
-    const articles = await getPublishedArticles();
-    return articles.map(toArticleListItem);
-  },
-  ["worship-published-articles"],
-  { revalidate: REVALIDATE_SECONDS, tags: ["worship-articles"] }
-);
-
-export const getPublishedSongsCached = cache(cachedPublishedSongs);
-export const getPublishedSermonsCached = cache(cachedPublishedSermons);
-export const getPublishedArticlesCached = cache(cachedPublishedArticles);
-
-export const getSongByIdCached = cache(async (songId: string) => {
+export const getPublishedSongsCached = cache(async (churchId: string) => {
   return unstable_cache(
-    async () => getSongById(songId),
-    ["worship-song-by-id", songId],
-    { revalidate: REVALIDATE_SECONDS, tags: [`worship-song-${songId}`] }
+    async (): Promise<FirebaseSong[]> => {
+      const songs = await getPublishedSongs(churchId);
+      return songs.map(toSongListItem);
+    },
+    ["worship-published-songs", churchId],
+    { revalidate: REVALIDATE_SECONDS, tags: ["worship-songs", `church-${churchId}`] }
   )();
 });
 
-export const getSermonByIdCached = cache(async (sermonId: string) => {
+export const getPublishedSermonsCached = cache(async (churchId: string) => {
   return unstable_cache(
-    async () => getSermonById(sermonId),
-    ["worship-sermon-by-id", sermonId],
-    { revalidate: REVALIDATE_SECONDS, tags: [`worship-sermon-${sermonId}`] }
+    async (): Promise<FirebaseSermon[]> => {
+      const sermons = await getPublishedSermons(churchId);
+      return sermons.map(toSermonListItem);
+    },
+    ["worship-published-sermons", churchId],
+    { revalidate: REVALIDATE_SECONDS, tags: ["worship-sermons", `church-${churchId}`] }
   )();
 });
 
-export const getArticleByIdCached = cache(async (articleId: string) => {
+export const getPublishedArticlesCached = cache(async (churchId: string) => {
   return unstable_cache(
-    async () => getArticleById(articleId),
-    ["worship-article-by-id", articleId],
-    { revalidate: REVALIDATE_SECONDS, tags: [`worship-article-${articleId}`] }
+    async (): Promise<FirebaseArticle[]> => {
+      const articles = await getPublishedArticles(churchId);
+      return articles.map(toArticleListItem);
+    },
+    ["worship-published-articles", churchId],
+    { revalidate: REVALIDATE_SECONDS, tags: ["worship-articles", `church-${churchId}`] }
   )();
 });
+
+export const getSongByIdCached = cache(async (churchId: string, songId: string) => {
+  return unstable_cache(
+    async () => {
+      const song = await getSongById(songId);
+      if (!song || song.churchId !== churchId) return null;
+      return song;
+    },
+    ["worship-song-by-id", churchId, songId],
+    { revalidate: REVALIDATE_SECONDS, tags: [`worship-song-${songId}`, `church-${churchId}`] }
+  )();
+});
+
+export const getSermonByIdCached = cache(
+  async (churchId: string, sermonId: string) => {
+    return unstable_cache(
+      async () => {
+        const sermon = await getSermonById(sermonId);
+        if (!sermon || sermon.churchId !== churchId) return null;
+        return sermon;
+      },
+      ["worship-sermon-by-id", churchId, sermonId],
+      {
+        revalidate: REVALIDATE_SECONDS,
+        tags: [`worship-sermon-${sermonId}`, `church-${churchId}`],
+      }
+    )();
+  }
+);
+
+export const getArticleByIdCached = cache(
+  async (churchId: string, articleId: string) => {
+    return unstable_cache(
+      async () => {
+        const article = await getArticleById(articleId);
+        if (!article || article.churchId !== churchId) return null;
+        return article;
+      },
+      ["worship-article-by-id", churchId, articleId],
+      {
+        revalidate: REVALIDATE_SECONDS,
+        tags: [`worship-article-${articleId}`, `church-${churchId}`],
+      }
+    )();
+  }
+);
 
 export type WorshipCatalog = {
   songs: FirebaseSong[];
@@ -75,11 +99,13 @@ export type WorshipCatalog = {
   articles: FirebaseArticle[];
 };
 
-export const getWorshipCatalogCached = cache(async (): Promise<WorshipCatalog> => {
-  const [songs, sermons, articles] = await Promise.all([
-    getPublishedSongsCached(),
-    getPublishedSermonsCached(),
-    getPublishedArticlesCached(),
-  ]);
-  return { songs, sermons, articles };
-});
+export const getWorshipCatalogCached = cache(
+  async (churchId: string): Promise<WorshipCatalog> => {
+    const [songs, sermons, articles] = await Promise.all([
+      getPublishedSongsCached(churchId),
+      getPublishedSermonsCached(churchId),
+      getPublishedArticlesCached(churchId),
+    ]);
+    return { songs, sermons, articles };
+  }
+);

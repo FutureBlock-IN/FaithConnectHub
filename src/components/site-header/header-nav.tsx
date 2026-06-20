@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Menu } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import type { SiteNavItem } from "@/config/site-nav";
 import {
@@ -150,45 +150,5 @@ export function DesktopPrimaryNav({ className }: { className?: string }) {
         </li>
       </ul>
     </nav>
-  );
-}
-
-/** Mobile: hamburger menu */
-export function MobilePrimaryNav({ className }: { className?: string }) {
-  const pathname = usePathname();
-
-  return (
-    <div className={className}>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label="Open navigation menu"
-          className={cn(
-            "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors",
-            "hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          )}
-        >
-          <Menu className="size-5" aria-hidden />
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent
-          align="end"
-          sideOffset={8}
-          className={menuContentClassName}
-        >
-          {sitePrimaryNav.map((item) => (
-            <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
-          ))}
-          <DropdownMenuSeparator className="my-1 bg-border/50" />
-          {siteMinistryNav.map((item) => (
-            <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
-          ))}
-          <DropdownMenuSeparator className="my-1 bg-border/50" />
-          {siteMinistrySecondaryNav.map((item) => (
-            <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   );
 }

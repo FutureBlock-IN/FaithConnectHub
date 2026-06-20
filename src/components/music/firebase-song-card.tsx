@@ -5,6 +5,7 @@ import { Pause, Play } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import type { FirebaseSong } from "@/types/firebase-song";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { DEFAULT_SONG_COVER } from "@/config/site";
@@ -171,6 +172,12 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
           song={song}
           displayTitle={displayTitle}
           isCurrentSong={isCurrentSong}
+        />
+
+        <FavoriteButton
+          itemType="song"
+          itemId={song.id}
+          className="absolute left-2 top-2 z-20"
         />
       </div>
 

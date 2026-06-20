@@ -7,15 +7,23 @@ import {
   getLatestApprovedPrayerRequests,
 } from "./firebase-prayer-request-queries";
 
-export const getApprovedPrayerRequestsCached = unstable_cache(
-  async (): Promise<FirebasePrayerRequest[]> => getApprovedPrayerRequests(),
-  ["approved-prayer-requests"],
-  { revalidate: 60, tags: ["prayer-requests"] }
-);
+export async function getApprovedPrayerRequestsCached(
+  churchId: string
+): Promise<FirebasePrayerRequest[]> {
+  return unstable_cache(
+    async () => getApprovedPrayerRequests(churchId),
+    ["approved-prayer-requests", churchId],
+    { revalidate: 60, tags: ["prayer-requests", `church-${churchId}`] }
+  )();
+}
 
-export const getLatestApprovedPrayerRequestsCached = unstable_cache(
-  async (limit = 3): Promise<FirebasePrayerRequest[]> =>
-    getLatestApprovedPrayerRequests(limit),
-  ["latest-approved-prayer-requests"],
-  { revalidate: 60, tags: ["prayer-requests"] }
-);
+export async function getLatestApprovedPrayerRequestsCached(
+  churchId: string,
+  limit = 3
+): Promise<FirebasePrayerRequest[]> {
+  return unstable_cache(
+    async () => getLatestApprovedPrayerRequests(churchId, limit),
+    ["latest-approved-prayer-requests", churchId, String(limit)],
+    { revalidate: 60, tags: ["prayer-requests", `church-${churchId}`] }
+  )();
+}

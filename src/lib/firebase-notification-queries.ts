@@ -43,6 +43,16 @@ export const NOTIFICATION_PRESETS: Record<
     message: "A new sermon has been published.",
     pathPrefix: "/sermons",
   },
+  event: {
+    title: "New Event Published",
+    message: "A new ministry event is available.",
+    pathPrefix: "/events",
+  },
+  prayer: {
+    title: "Prayer Request Approved",
+    message: "A prayer request is now on the prayer wall.",
+    pathPrefix: "/prayer-requests",
+  },
 };
 
 function toMillis(value: unknown): number {

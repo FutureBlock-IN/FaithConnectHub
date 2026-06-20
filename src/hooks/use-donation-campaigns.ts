@@ -12,6 +12,7 @@ import {
 
 import type { FirebaseDonationCampaign } from "@/types/firebase-donation";
 
+import { useActiveChurchScope } from "@/context/active-church-context";
 import {
   DONATION_CAMPAIGNS_COLLECTION,
   filterActiveCampaigns,
@@ -28,12 +29,18 @@ export function useActiveDonationCampaigns(
   options: UseActiveDonationCampaignsOptions = {}
 ) {
   const { maxItems } = options;
+  const { churchId, isLoading: churchResolving } = useActiveChurchScope();
   const [campaigns, setCampaigns] = useState(initialData);
-  const [loading, setLoading] = useState(initialData.length === 0);
+  const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
+    if (!churchId) return;
+
+    setSyncing(true);
+
     const campaignsQuery = query(
       collection(db, DONATION_CAMPAIGNS_COLLECTION),
+      where("churchId", "==", churchId),
       where("status", "==", "active"),
       orderBy("createdAt", "desc")
     );
@@ -55,13 +62,15 @@ export function useActiveDonationCampaigns(
         }
 
         setCampaigns(next);
-        setLoading(false);
+        setSyncing(false);
       },
-      () => setLoading(false)
+      () => setSyncing(false)
     );
 
     return unsubscribe;
-  }, [maxItems]);
+  }, [churchId, maxItems]);
+
+  const loading = churchResolving || syncing;
 
   return { campaigns, loading };
 }

@@ -1,5 +1,6 @@
 export type FirebaseSermon = {
   id: string;
+  churchId: string;
   title: string;
   subtitle?: string;
   scriptureReference: string;
@@ -16,6 +17,7 @@ export type FirebaseSermon = {
 };
 
 export type CreateSermonInput = {
+  churchId: string;
   title: string;
   subtitle?: string;
   scriptureReference: string;

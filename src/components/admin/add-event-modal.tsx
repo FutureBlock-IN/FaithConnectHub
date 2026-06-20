@@ -42,6 +42,7 @@ import {
   type EventFormValues,
 } from "@/lib/event-form-validation";
 import { createEvent, updateEvent } from "@/lib/event-mutations";
+import { notifyIfEventPublished } from "@/lib/notify-if-published";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 
@@ -50,6 +51,7 @@ type AddEventModalProps = {
   onClose: () => void;
   onSave: () => void;
   initialEvent?: FirebaseEvent | null;
+  churchId: string;
 };
 
 export function AddEventModal({
@@ -57,6 +59,7 @@ export function AddEventModal({
   onClose,
   onSave,
   initialEvent,
+  churchId,
 }: AddEventModalProps) {
   const [bannerFile, setBannerFile] = useState<File | undefined>();
   const [bannerPreview, setBannerPreview] = useState("");
@@ -147,6 +150,7 @@ export function AddEventModal({
       if (initialEvent) {
         await updateEvent(initialEvent.id, payload);
 
+        let bannerImageUrl = initialEvent.bannerImage ?? "";
         if (bannerFile) {
           const formData = new FormData();
           formData.append("file", bannerFile);
@@ -157,12 +161,22 @@ export function AddEventModal({
             (progress) => setUploadProgress(progress)
           );
           await updateEvent(initialEvent.id, { bannerImage: url });
+          bannerImageUrl = url;
         }
+
+        await notifyIfEventPublished({
+          contentId: initialEvent.id,
+          contentTitle: payload.title,
+          image: bannerImageUrl,
+          status: payload.status,
+          wasStatus: initialEvent.status,
+        });
 
         toast.success("Event updated successfully");
       } else {
-        const eventId = await createEvent(payload);
+        const eventId = await createEvent({ ...payload, churchId });
 
+        let bannerImageUrl = payload.bannerImage;
         if (bannerFile) {
           const formData = new FormData();
           formData.append("file", bannerFile);
@@ -173,7 +187,15 @@ export function AddEventModal({
             (progress) => setUploadProgress(progress)
           );
           await updateEvent(eventId, { bannerImage: url });
+          bannerImageUrl = url;
         }
+
+        await notifyIfEventPublished({
+          contentId: eventId,
+          contentTitle: payload.title,
+          image: bannerImageUrl,
+          status: payload.status,
+        });
 
         toast.success("Event created successfully");
       }

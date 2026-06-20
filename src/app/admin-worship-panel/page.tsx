@@ -12,11 +12,13 @@ import {
   FileText,
   HeartHandshake,
   CalendarDays,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
+import type { FirebaseChurch } from "@/types/firebase-church";
 import type { FirebaseDonation, FirebaseDonationCampaign } from "@/types/firebase-donation";
 import type { FirebaseEvent } from "@/types/firebase-event";
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
@@ -24,17 +26,25 @@ import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { ArticleList } from "@/components/admin/article-list";
+import { ChurchList } from "@/components/admin/church-list";
+import { ChurchesDashboardCard } from "@/components/admin/churches-dashboard-card";
 import { DonationCampaignList } from "@/components/admin/donation-campaign-list";
 import { EventList } from "@/components/admin/event-list";
 import { PrayerRequestList } from "@/components/admin/prayer-request-list";
 import { PrayerRequestsDashboardCard } from "@/components/admin/prayer-requests-dashboard-card";
 import { SermonList } from "@/components/admin/sermon-list";
 import { MusicList } from "@/components/admin/music-list";
+import { ChurchSelector } from "@/components/church/church-selector";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  CHURCHES_COLLECTION,
+  normalizeChurchFromFirestore,
+} from "@/lib/church-firestore";
+import { filterRecordsByChurch } from "@/lib/church-scope";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
-import { subscribeCollectionWithFallback } from "@/lib/firestore-realtime-subscribe";
+import { useAdminChurchId, useIsPlatformSuperAdmin } from "@/hooks/use-admin-church-id";
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
 import {
   DONATION_CAMPAIGNS_COLLECTION,
@@ -83,8 +93,16 @@ const AddDonationCampaignModal = dynamic(
     ),
   { ssr: false }
 );
+const AddChurchModal = dynamic(
+  () =>
+    import("@/components/admin/add-church-modal").then(
+      (mod) => mod.AddChurchModal
+    ),
+  { ssr: false }
+);
 
 type AdminTab =
+  | "churches"
   | "songs"
   | "sermons"
   | "articles"
@@ -94,6 +112,7 @@ type AdminTab =
 
 function parseAdminTab(value: string | null): AdminTab {
   if (
+    value === "churches" ||
     value === "sermons" ||
     value === "articles" ||
     value === "events" ||
@@ -107,6 +126,8 @@ function parseAdminTab(value: string | null): AdminTab {
 
 export default function AdminPage() {
   const searchParams = useSearchParams();
+  const adminChurchId = useAdminChurchId();
+  const isSuperAdmin = useIsPlatformSuperAdmin();
   const [activeTab, setActiveTab] = useState<AdminTab>(() =>
     parseAdminTab(searchParams.get("tab"))
   );
@@ -124,6 +145,7 @@ export default function AdminPage() {
   const [prayerRequests, setPrayerRequests] = useState<FirebasePrayerRequest[]>(
     []
   );
+  const [churches, setChurches] = useState<FirebaseChurch[]>([]);
 
   const [songsLoading, setSongsLoading] = useState(true);
   const [sermonsLoading, setSermonsLoading] = useState(true);
@@ -131,12 +153,14 @@ export default function AdminPage() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [donationsLoading, setDonationsLoading] = useState(true);
   const [prayersLoading, setPrayersLoading] = useState(true);
+  const [churchesLoading, setChurchesLoading] = useState(true);
 
   const [songModalOpen, setSongModalOpen] = useState(false);
   const [sermonModalOpen, setSermonModalOpen] = useState(false);
   const [articleModalOpen, setArticleModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [donationModalOpen, setDonationModalOpen] = useState(false);
+  const [churchModalOpen, setChurchModalOpen] = useState(false);
 
   const [selectedSong, setSelectedSong] = useState<FirebaseSong | null>(null);
   const [selectedSermon, setSelectedSermon] =
@@ -146,6 +170,9 @@ export default function AdminPage() {
   const [selectedEvent, setSelectedEvent] = useState<FirebaseEvent | null>(null);
   const [selectedCampaign, setSelectedCampaign] =
     useState<FirebaseDonationCampaign | null>(null);
+  const [selectedChurch, setSelectedChurch] = useState<FirebaseChurch | null>(
+    null
+  );
 
   const [loadedSongsTab, setLoadedSongsTab] = useState(
     () => parseAdminTab(searchParams.get("tab")) === "songs"
@@ -172,8 +199,45 @@ export default function AdminPage() {
   }, [activeTab]);
 
   useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    const churchesQuery = query(
+      collection(db, CHURCHES_COLLECTION),
+      orderBy("name", "asc")
+    );
+
+    const unsubscribe = onSnapshot(
+      churchesQuery,
+      (snapshot) => {
+        setChurches(
+          snapshot.docs.map((docSnap) =>
+            normalizeChurchFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          )
+        );
+        setChurchesLoading(false);
+      },
+      () => {
+        toast.error("Unable to sync churches");
+        setChurchesLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (!adminChurchId) {
+      setPrayerRequests([]);
+      setPrayersLoading(false);
+      return;
+    }
+
     const prayersQuery = query(
       collection(db, "prayerRequests"),
+      where("churchId", "==", adminChurchId),
       orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -195,13 +259,14 @@ export default function AdminPage() {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [adminChurchId]);
 
   useEffect(() => {
-    if (!loadedSongsTab) return;
+    if (!loadedSongsTab || !adminChurchId) return;
 
     const songsQuery = query(
       collection(db, "songs"),
+      where("churchId", "==", adminChurchId),
       orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -223,17 +288,21 @@ export default function AdminPage() {
       }
     );
     return () => unsubscribe();
-  }, [loadedSongsTab]);
+  }, [loadedSongsTab, adminChurchId]);
 
   const sermonSnapshotsRef = useRef<Record<string, FirebaseSermon[]>>({});
 
   useEffect(() => {
-    if (!loadedSermonsTab) return;
+    if (!loadedSermonsTab || !adminChurchId) return;
 
+    const scopedChurchId = adminChurchId;
     sermonSnapshotsRef.current = {};
 
     function publishMerged() {
-      setSermons(mergeSermonsById(Object.values(sermonSnapshotsRef.current)));
+      const merged = mergeSermonsById(
+        Object.values(sermonSnapshotsRef.current)
+      );
+      setSermons(filterRecordsByChurch(merged, scopedChurchId));
       setSermonsLoading(false);
     }
 
@@ -241,6 +310,7 @@ export default function AdminPage() {
       (collectionName) => {
         const sermonsQuery = query(
           collection(db, collectionName),
+          where("churchId", "==", scopedChurchId),
           orderBy("dateCreated", "desc")
         );
 
@@ -276,13 +346,14 @@ export default function AdminPage() {
     );
 
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [loadedSermonsTab]);
+  }, [loadedSermonsTab, adminChurchId]);
 
   useEffect(() => {
-    if (!loadedArticlesTab) return;
+    if (!loadedArticlesTab || !adminChurchId) return;
 
     const articlesQuery = query(
       collection(db, "articles"),
+      where("churchId", "==", adminChurchId),
       orderBy("dateCreated", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -304,13 +375,14 @@ export default function AdminPage() {
       }
     );
     return () => unsubscribe();
-  }, [loadedArticlesTab]);
+  }, [loadedArticlesTab, adminChurchId]);
 
   useEffect(() => {
-    if (!loadedEventsTab) return;
+    if (!loadedEventsTab || !adminChurchId) return;
 
     const eventsQuery = query(
       collection(db, EVENTS_COLLECTION),
+      where("churchId", "==", adminChurchId),
       orderBy("eventDate", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -332,56 +404,61 @@ export default function AdminPage() {
       }
     );
     return () => unsubscribe();
-  }, [loadedEventsTab]);
+  }, [loadedEventsTab, adminChurchId]);
 
   useEffect(() => {
-    if (!loadedDonationsTab) return;
+    if (!loadedDonationsTab || !adminChurchId) return;
 
-    const campaignsCol = collection(db, DONATION_CAMPAIGNS_COLLECTION);
-    const donationsCol = collection(db, DONATIONS_COLLECTION);
+    const campaignsQuery = query(
+      collection(db, DONATION_CAMPAIGNS_COLLECTION),
+      where("churchId", "==", adminChurchId),
+      orderBy("createdAt", "desc")
+    );
+    const donationsQuery = query(
+      collection(db, DONATIONS_COLLECTION),
+      where("churchId", "==", adminChurchId),
+      orderBy("createdAt", "desc")
+    );
 
-    const unsubscribeCampaigns = subscribeCollectionWithFallback(
-      campaignsCol,
-      "createdAt",
-      {
-        mapSnapshot: (snapshot) =>
+    const unsubscribeCampaigns = onSnapshot(
+      campaignsQuery,
+      (snapshot) => {
+        setCampaigns(
           snapshot.docs.map((docSnap) =>
             normalizeDonationCampaignFromFirestore(
               docSnap.id,
               docSnap.data() as Record<string, unknown>
             )
-          ),
-        sortResults: (items) =>
-          [...items].sort((a, b) => b.createdAt - a.createdAt),
-        onData: setCampaigns,
-        onReady: () => setDonationsLoading(false),
-        onError: (message) => toast.error(message),
+          )
+        );
+        setDonationsLoading(false);
+      },
+      () => {
+        toast.error("Unable to sync donation campaigns");
+        setDonationsLoading(false);
       }
     );
 
-    const unsubscribeDonations = subscribeCollectionWithFallback(
-      donationsCol,
-      "createdAt",
-      {
-        mapSnapshot: (snapshot) =>
+    const unsubscribeDonations = onSnapshot(
+      donationsQuery,
+      (snapshot) => {
+        setDonations(
           snapshot.docs.map((docSnap) =>
             normalizeDonationFromFirestore(
               docSnap.id,
               docSnap.data() as Record<string, unknown>
             )
-          ),
-        sortResults: (items) =>
-          [...items].sort((a, b) => b.createdAt - a.createdAt),
-        onData: setDonations,
-        onError: (message) => toast.error(message),
-      }
+          )
+        );
+      },
+      () => toast.error("Unable to sync donations")
     );
 
     return () => {
       unsubscribeCampaigns();
       unsubscribeDonations();
     };
-  }, [loadedDonationsTab]);
+  }, [loadedDonationsTab, adminChurchId]);
 
   const publishedSongs = useMemo(
     () => songs.filter((s) => s.published !== false).length,
@@ -426,10 +503,18 @@ export default function AdminPage() {
     [songs]
   );
 
+  const activeChurches = useMemo(
+    () => churches.filter((church) => church.isActive).length,
+    [churches]
+  );
+
   function getAddHandler() {
     if (activeTab === "prayers") return;
 
-    if (activeTab === "songs") {
+    if (activeTab === "churches") {
+      setSelectedChurch(null);
+      setChurchModalOpen(true);
+    } else if (activeTab === "songs") {
       setSelectedSong(null);
       setSongModalOpen(true);
     } else if (activeTab === "sermons") {
@@ -448,7 +533,9 @@ export default function AdminPage() {
   }
 
   const addLabel =
-    activeTab === "songs"
+    activeTab === "churches"
+      ? "Add Church"
+      : activeTab === "songs"
       ? "Add Song"
       : activeTab === "sermons"
         ? "Add Sermon"
@@ -482,18 +569,43 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {activeTab !== "prayers" ?
-            <Button
-              size="sm"
-              onClick={getAddHandler}
-              className="gap-2 rounded-full px-5 font-semibold shadow"
-            >
-              <Plus className="h-4 w-4" />
-              {addLabel}
-            </Button>
-          : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {isSuperAdmin && activeTab !== "churches" ?
+              <ChurchSelector compact />
+            : null}
+            {activeTab !== "prayers" ?
+              <Button
+                size="sm"
+                onClick={getAddHandler}
+                disabled={
+                  activeTab !== "churches" && !adminChurchId
+                }
+                className="gap-2 rounded-full px-5 font-semibold shadow"
+              >
+                <Plus className="h-4 w-4" />
+                {addLabel}
+              </Button>
+            : null}
+          </div>
         </div>
       </div>
+
+      {!adminChurchId && activeTab !== "churches" ?
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          Select an active church to manage worship content. Super admins can use the
+          church selector above.
+        </div>
+      : null}
+
+      {isSuperAdmin ?
+        <ChurchesDashboardCard
+          total={churches.length}
+          active={activeChurches}
+          loading={churchesLoading}
+          activeTab={activeTab === "churches"}
+          onSelect={() => setActiveTab("churches")}
+        />
+      : null}
 
       <PrayerRequestsDashboardCard
         total={prayerRequests.length}
@@ -510,6 +622,11 @@ export default function AdminPage() {
         className="w-full space-y-6"
       >
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-3 lg:inline-flex lg:w-auto">
+          {isSuperAdmin ?
+            <TabsTrigger value="churches" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
+              Churches
+            </TabsTrigger>
+          : null}
           <TabsTrigger value="songs" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Songs
           </TabsTrigger>
@@ -529,6 +646,53 @@ export default function AdminPage() {
             Prayer Requests
           </TabsTrigger>
         </TabsList>
+
+        {isSuperAdmin ?
+          <TabsContent value="churches" className="mt-0 space-y-4">
+            {activeTab === "churches" ?
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                  {[
+                    {
+                      icon: <Building2 className="h-4 w-4" />,
+                      label: "Total Churches",
+                      value: churchesLoading ? "—" : churches.length,
+                    },
+                    {
+                      icon: <Building2 className="h-4 w-4" />,
+                      label: "Active",
+                      value: churchesLoading ? "—" : activeChurches,
+                    },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-card px-4 py-4 shadow-sm"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        {stat.icon}
+                      </div>
+                      <p className="font-heading text-xl font-bold sm:text-2xl">
+                        {stat.value}
+                      </p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <ChurchList
+                  churches={churches}
+                  loading={churchesLoading}
+                  onEdit={(church) => {
+                    setSelectedChurch(church);
+                    setChurchModalOpen(true);
+                  }}
+                  onChanged={() => setChurchesLoading(true)}
+                />
+              </>
+            : null}
+          </TabsContent>
+        : null}
 
         <TabsContent value="songs" className="mt-0 space-y-4">
           {activeTab === "songs" ? (
@@ -758,31 +922,50 @@ export default function AdminPage() {
         onClose={() => { setSongModalOpen(false); setSelectedSong(null); }}
         onSave={() => { setSongModalOpen(false); setSelectedSong(null); }}
         initialSong={selectedSong}
+        churchId={adminChurchId ?? ""}
       />
       <AddSermonModal
         isOpen={sermonModalOpen}
         onClose={() => { setSermonModalOpen(false); setSelectedSermon(null); }}
         onSave={() => { setSermonModalOpen(false); setSelectedSermon(null); }}
         initialSermon={selectedSermon}
+        churchId={adminChurchId ?? ""}
       />
       <AddArticleModal
         isOpen={articleModalOpen}
         onClose={() => { setArticleModalOpen(false); setSelectedArticle(null); }}
         onSave={() => { setArticleModalOpen(false); setSelectedArticle(null); }}
         initialArticle={selectedArticle}
+        churchId={adminChurchId ?? ""}
       />
       <AddEventModal
         isOpen={eventModalOpen}
         onClose={() => { setEventModalOpen(false); setSelectedEvent(null); }}
         onSave={() => { setEventModalOpen(false); setSelectedEvent(null); }}
         initialEvent={selectedEvent}
+        churchId={adminChurchId ?? ""}
       />
       <AddDonationCampaignModal
         isOpen={donationModalOpen}
         onClose={() => { setDonationModalOpen(false); setSelectedCampaign(null); }}
         onSave={() => { setDonationModalOpen(false); setSelectedCampaign(null); }}
         initialCampaign={selectedCampaign}
+        churchId={adminChurchId ?? ""}
       />
+      {isSuperAdmin ?
+        <AddChurchModal
+          isOpen={churchModalOpen}
+          onClose={() => {
+            setChurchModalOpen(false);
+            setSelectedChurch(null);
+          }}
+          onSave={() => {
+            setChurchModalOpen(false);
+            setSelectedChurch(null);
+          }}
+          initialChurch={selectedChurch}
+        />
+      : null}
     </div>
   );
 }

@@ -22,7 +22,11 @@ import type {
 
 import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
-import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
+import { filterRecordsByChurch } from "./church-scope";
+import {
+  isRecoverableAdminError,
+  wrapFirebaseError,
+} from "./firebase-utils";
 import {
   ARTICLES_COLLECTION,
   normalizeArticleFromFirestore,
@@ -79,12 +83,14 @@ async function fetchAllArticles(): Promise<FirebaseArticle[]> {
   }
 }
 
-export async function getArticles(): Promise<FirebaseArticle[]> {
-  return fetchAllArticles();
+export async function getArticles(churchId: string): Promise<FirebaseArticle[]> {
+  return filterRecordsByChurch(await fetchAllArticles(), churchId);
 }
 
-export async function getPublishedArticles(): Promise<FirebaseArticle[]> {
-  const articles = await fetchAllArticles();
+export async function getPublishedArticles(
+  churchId: string
+): Promise<FirebaseArticle[]> {
+  const articles = filterRecordsByChurch(await fetchAllArticles(), churchId);
   return articles.filter((a) => a.isPublished);
 }
 
@@ -128,12 +134,13 @@ export async function getArticleById(
 }
 
 export async function searchArticles(
+  churchId: string,
   searchQuery: string
 ): Promise<FirebaseArticle[]> {
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const articles = await getPublishedArticles();
+  const articles = await getPublishedArticles(churchId);
   return articles.filter((article) => {
     const haystack = [
       article.title,
