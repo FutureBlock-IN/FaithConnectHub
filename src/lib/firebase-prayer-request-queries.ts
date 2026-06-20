@@ -23,6 +23,7 @@ import {
   isRecoverableAdminError,
   wrapFirebaseError,
 } from "./firebase-utils";
+import { filterRecordsByChurch } from "./church-scope";
 import {
   normalizePrayerRequestFromFirestore,
   PRAYER_REQUESTS_COLLECTION,
@@ -204,20 +205,23 @@ async function fetchApprovedPrayerRequests(): Promise<FirebasePrayerRequest[]> {
   }
 }
 
-export async function getPrayerRequests(): Promise<FirebasePrayerRequest[]> {
-  return fetchAllPrayerRequests();
+export async function getPrayerRequests(
+  churchId: string
+): Promise<FirebasePrayerRequest[]> {
+  return filterRecordsByChurch(await fetchAllPrayerRequests(), churchId);
 }
 
-export async function getApprovedPrayerRequests(): Promise<
-  FirebasePrayerRequest[]
-> {
-  return fetchApprovedPrayerRequests();
+export async function getApprovedPrayerRequests(
+  churchId: string
+): Promise<FirebasePrayerRequest[]> {
+  return filterRecordsByChurch(await fetchApprovedPrayerRequests(), churchId);
 }
 
 export async function getLatestApprovedPrayerRequests(
+  churchId: string,
   limit = 3
 ): Promise<FirebasePrayerRequest[]> {
-  const approved = await fetchApprovedPrayerRequests();
+  const approved = await getApprovedPrayerRequests(churchId);
   return approved.slice(0, limit);
 }
 

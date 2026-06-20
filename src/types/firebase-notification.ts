@@ -1,4 +1,9 @@
-export type NotificationContentType = "song" | "article" | "sermon";
+export type NotificationContentType =
+  | "song"
+  | "article"
+  | "sermon"
+  | "event"
+  | "prayer";
 
 export type FirebaseNotification = {
   id: string;

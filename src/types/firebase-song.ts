@@ -12,6 +12,7 @@ export type SongCategory = (typeof SONG_CATEGORIES)[number];
 
 export type FirebaseSong = {
   id: string;
+  churchId: string;
   /** Primary display title */
   songTitle: string;
   alternateTitle?: string;

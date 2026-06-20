@@ -14,6 +14,7 @@ export type EventStatus = "draft" | "published";
 
 export type FirebaseEvent = {
   id: string;
+  churchId: string;
   title: string;
   description: string;
   bannerImage?: string;
@@ -28,6 +29,7 @@ export type FirebaseEvent = {
 };
 
 export type CreateEventInput = {
+  churchId: string;
   title: string;
   description: string;
   bannerImage?: string;

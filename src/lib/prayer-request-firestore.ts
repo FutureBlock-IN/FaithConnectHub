@@ -4,6 +4,7 @@ import type {
   PrayerRequestStatus,
 } from "@/types/firebase-prayer-request";
 
+import { resolveDocumentChurchId } from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 export const PRAYER_REQUESTS_COLLECTION = "prayerRequests";
@@ -30,6 +31,7 @@ export function normalizePrayerRequestFromFirestore(
 
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     name: String(data.name ?? "").trim() || "Anonymous",
     email: email || undefined,
     title: String(data.title ?? "").trim(),
@@ -80,6 +82,7 @@ export function buildPrayerRequestCreatePayload(
       });
 
   return {
+    churchId: input.churchId.trim(),
     name: displayName,
     email: input.email?.trim() || null,
     title: input.title,

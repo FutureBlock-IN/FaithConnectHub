@@ -1,4 +1,6 @@
 import type { NotificationContentType } from "@/types/firebase-notification";
+import type { EventStatus } from "@/types/firebase-event";
+import type { PrayerRequestStatus } from "@/types/firebase-prayer-request";
 
 import { createPublishNotification } from "@/lib/firebase-notification-queries";
 
@@ -13,7 +15,7 @@ import { createPublishNotification } from "@/lib/firebase-notification-queries";
  * don't need to change.
  */
 export async function notifyIfNewlyPublished(input: {
-  type: NotificationContentType;
+  type: Extract<NotificationContentType, "song" | "article" | "sermon">;
   contentId: string;
   contentTitle: string;
   image?: string;
@@ -32,5 +34,49 @@ export async function notifyIfNewlyPublished(input: {
     });
   } catch (error) {
     console.error("[notifyIfNewlyPublished] notification dispatch failed:", error);
+  }
+}
+
+export async function notifyIfEventPublished(input: {
+  contentId: string;
+  contentTitle: string;
+  image?: string;
+  status: EventStatus;
+  wasStatus?: EventStatus;
+}): Promise<void> {
+  const isNewPublish =
+    input.status === "published" && input.wasStatus !== "published";
+  if (!isNewPublish) return;
+
+  try {
+    await createPublishNotification({
+      type: "event",
+      contentId: input.contentId,
+      contentTitle: input.contentTitle,
+      image: input.image,
+    });
+  } catch (error) {
+    console.error("[notifyIfEventPublished] notification dispatch failed:", error);
+  }
+}
+
+export async function notifyIfPrayerApproved(input: {
+  contentId: string;
+  contentTitle: string;
+  previousStatus: PrayerRequestStatus;
+  newStatus: PrayerRequestStatus;
+}): Promise<void> {
+  if (input.newStatus !== "approved" || input.previousStatus === "approved") {
+    return;
+  }
+
+  try {
+    await createPublishNotification({
+      type: "prayer",
+      contentId: input.contentId,
+      contentTitle: input.contentTitle,
+    });
+  } catch (error) {
+    console.error("[notifyIfPrayerApproved] notification dispatch failed:", error);
   }
 }

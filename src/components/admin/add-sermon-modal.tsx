@@ -82,6 +82,7 @@ type AddSermonModalProps = {
   onClose: () => void;
   onSave: () => void;
   initialSermon?: FirebaseSermon | null;
+  churchId: string;
 };
 
 function parseTags(tagsInput?: string): string[] {
@@ -116,6 +117,7 @@ export function AddSermonModal({
   onClose,
   onSave,
   initialSermon,
+  churchId,
 }: AddSermonModalProps) {
   const { authUser } = useFirebaseAuth();
   const [coverFile, setCoverFile] = useState<File | undefined>();
@@ -235,6 +237,7 @@ export function AddSermonModal({
       } else {
         const sermonId = await createSermon({
           ...payload,
+          churchId,
           coverImage: "",
           createdBy,
         });

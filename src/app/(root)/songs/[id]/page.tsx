@@ -7,6 +7,7 @@ import { ContentAuthRequired } from "@/components/auth/content-auth-required";
 import { SongDetailClient } from "@/components/music/song-detail-client";
 import { siteConfig } from "@/config/site";
 import { isAuthenticatedServer } from "@/lib/auth-server";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getSongByIdCached } from "@/lib/cached-worship-data";
 import { isSongPublished, getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 import { getSongCoverUrl } from "@/lib/utils";
@@ -20,7 +21,8 @@ export async function generateMetadata({
   params,
 }: SongDetailPageProps): Promise<Metadata> {
   const { id } = await params;
-  const song = await getSongByIdCached(id);
+  const { churchId } = await getPageChurchContext();
+  const song = await getSongByIdCached(churchId, id);
 
   if (!song) {
     return { title: siteConfig.name };
@@ -74,7 +76,8 @@ export default async function SongDetailPage({ params }: SongDetailPageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
-  const song = await getSongByIdCached(id);
+  const { churchId } = await getPageChurchContext();
+  const song = await getSongByIdCached(churchId, id);
 
   if (!song || !isSongPublished(song)) {
     notFound();

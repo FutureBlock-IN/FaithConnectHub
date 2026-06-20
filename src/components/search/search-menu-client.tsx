@@ -25,6 +25,8 @@ const TOP_ITEMS_LIMIT = 12;
 export type SearchMenuProps = {
   className?: string;
   catalog: WorshipCatalog;
+  placeholder?: string;
+  enableShortcut?: boolean;
 };
 
 type SearchMenuTriggerProps = {
@@ -62,7 +64,12 @@ function SearchMenuTrigger({
   );
 }
 
-export function SearchMenuClient({ catalog, className }: SearchMenuProps) {
+export function SearchMenuClient({
+  catalog,
+  className,
+  placeholder,
+  enableShortcut = true,
+}: SearchMenuProps) {
   const pathname = usePathname();
 
   const [mounted, setMounted] = useState(false);
@@ -75,7 +82,7 @@ export function SearchMenuClient({ catalog, className }: SearchMenuProps) {
   const [_, setIsTyping] = useIsTyping();
   const { activeTab } = useEffectiveWorshipCollectionTab();
 
-  const searchPlaceholder = getSearchPlaceholder(activeTab);
+  const searchPlaceholder = placeholder ?? getSearchPlaceholder(activeTab);
   const shortcutKey = mounted && isMacOs() ? "⌘" : "Ctrl";
 
   useEffect(() => {
@@ -98,6 +105,7 @@ export function SearchMenuClient({ catalog, className }: SearchMenuProps) {
   }
 
   useEventListener("keydown", (e: KeyboardEvent) => {
+    if (!enableShortcut) return;
     if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       if (isOpen) {
@@ -110,20 +118,17 @@ export function SearchMenuClient({ catalog, className }: SearchMenuProps) {
 
   useEffect(() => {
     if (isOpen) {
-      setIsTyping(true);
-    } else {
-      setIsTyping(false);
-      setQuery("");
+      setIsTyping(debouncedQuery.length > 0);
+      return;
     }
-  }, [isOpen, setIsTyping]);
+
+    setIsTyping(false);
+    setQuery("");
+  }, [debouncedQuery, isOpen, setIsTyping]);
 
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    setIsTyping(debouncedQuery.length > 0);
-  }, [debouncedQuery, setIsTyping]);
 
   return (
     <>

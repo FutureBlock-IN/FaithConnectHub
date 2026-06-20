@@ -1,6 +1,7 @@
 import React from "react";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { Badge } from "@/components/ui/badge";
@@ -25,48 +26,59 @@ export const FirebaseSermonCard = React.memo(function FirebaseSermonCard({
   const excerpt = sermon.shortDescription || sermon.subtitle;
 
   return (
-    <ProtectedContentLink
-      href={href}
+    <article
       className={cn(
         "group flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card/40 text-left transition-all duration-200 hover:-translate-y-1 hover:border-border/80 hover:bg-card/60 hover:shadow-lg hover:shadow-black/20",
-        className,
+        className
       )}
     >
       <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-muted">
-        <ImageWithFallback
-          src={coverUrl}
-          fallback={DEFAULT_SONG_COVER}
-          fill
-          sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          alt={sermon.title}
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-        {scripture ? (
+        <ProtectedContentLink href={href} className="block size-full">
+          <ImageWithFallback
+            src={coverUrl}
+            fallback={DEFAULT_SONG_COVER}
+            fill
+            sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            alt={sermon.title}
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </ProtectedContentLink>
+
+        {scripture ?
           <Badge
             variant="secondary"
-            className="absolute left-3 top-3 rounded-md border-0 bg-background/85 px-2 py-0.5 text-[10px] font-medium text-foreground shadow-sm backdrop-blur-sm"
+            className="pointer-events-none absolute left-3 top-3 rounded-md border-0 bg-background/85 px-2 py-0.5 text-[10px] font-medium text-foreground shadow-sm backdrop-blur-sm"
           >
             {scripture}
           </Badge>
-        ) : null}
+        : null}
+
+        <FavoriteButton
+          itemType="sermon"
+          itemId={sermon.id}
+          className="absolute right-3 top-3 z-10"
+        />
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4 text-left">
+      <ProtectedContentLink
+        href={href}
+        className="flex flex-1 flex-col gap-2 p-4 text-left"
+      >
         <h3 className="line-clamp-2 text-left text-base font-semibold leading-snug text-foreground">
           {sermon.title}
         </h3>
 
-        {sermon.speaker ? (
+        {sermon.speaker ?
           <p className="text-left text-xs font-medium text-muted-foreground">
             {sermon.speaker}
           </p>
-        ) : null}
+        : null}
 
-        {excerpt ? (
+        {excerpt ?
           <p className="line-clamp-2 text-left text-sm leading-relaxed text-muted-foreground">
             {excerpt}
           </p>
-        ) : null}
+        : null}
 
         <div className="mt-auto flex items-center gap-2 pt-3 text-left">
           <time
@@ -76,7 +88,7 @@ export const FirebaseSermonCard = React.memo(function FirebaseSermonCard({
             {formatContentDate(sermon.dateCreated)}
           </time>
         </div>
-      </div>
-    </ProtectedContentLink>
+      </ProtectedContentLink>
+    </article>
   );
 });

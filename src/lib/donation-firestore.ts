@@ -9,6 +9,7 @@ import type {
 } from "@/types/firebase-donation";
 import { DONATION_CURRENCIES } from "@/types/firebase-donation";
 
+import { resolveDocumentChurchId } from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 export const DONATION_CAMPAIGNS_COLLECTION = "donationCampaigns";
@@ -53,6 +54,7 @@ export function normalizeDonationCampaignFromFirestore(
 ): FirebaseDonationCampaign {
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     title: String(data.title ?? "").trim(),
     description: String(data.description ?? "").trim(),
     bannerImage: String(data.bannerImage ?? "").trim() || undefined,
@@ -71,6 +73,7 @@ export function normalizeDonationFromFirestore(
 ): FirebaseDonation {
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     campaignId: String(data.campaignId ?? "").trim(),
     donorName: String(data.donorName ?? "").trim(),
     donorEmail: String(data.donorEmail ?? "").trim(),
@@ -88,6 +91,7 @@ export function buildDonationCampaignCreatePayload(
   input: CreateDonationCampaignInput
 ) {
   return {
+    churchId: input.churchId.trim(),
     title: input.title.trim(),
     description: input.description.trim(),
     bannerImage: input.bannerImage?.trim() || "",

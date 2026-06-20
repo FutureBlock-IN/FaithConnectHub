@@ -23,6 +23,7 @@ import type {
 import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
 import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
+import { filterRecordsByChurch } from "./church-scope";
 import {
   LEGACY_SERMONS_COLLECTION,
   SERMONS_COLLECTION,
@@ -163,12 +164,14 @@ async function getSermonDocRef(
   return null;
 }
 
-export async function getSermons(): Promise<FirebaseSermon[]> {
-  return fetchAllSermons();
+export async function getSermons(churchId: string): Promise<FirebaseSermon[]> {
+  return filterRecordsByChurch(await fetchAllSermons(), churchId);
 }
 
-export async function getPublishedSermons(): Promise<FirebaseSermon[]> {
-  const sermons = await fetchAllSermons();
+export async function getPublishedSermons(
+  churchId: string
+): Promise<FirebaseSermon[]> {
+  const sermons = filterRecordsByChurch(await fetchAllSermons(), churchId);
   const published = sermons.filter((s) => s.isPublished);
   if (process.env.NODE_ENV !== "production") {
     console.info("[sermons] published count", {
@@ -243,12 +246,13 @@ export async function getSermonById(
 }
 
 export async function searchSermons(
+  churchId: string,
   searchQuery: string
 ): Promise<FirebaseSermon[]> {
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const sermons = await getPublishedSermons();
+  const sermons = await getPublishedSermons(churchId);
   return sermons.filter((sermon) => {
     const haystack = [
       sermon.title,

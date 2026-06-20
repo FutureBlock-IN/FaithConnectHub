@@ -1,5 +1,6 @@
 import { SongsTabContent } from "@/components/worship/songs-tab-content";
 import { siteConfig } from "@/config/site";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getPublishedSongsCached } from "@/lib/cached-worship-data";
 
 export const revalidate = 60;
@@ -10,7 +11,8 @@ export const metadata = {
 };
 
 export default async function SongsPage() {
-  const songs = await getPublishedSongsCached();
+  const { churchId } = await getPageChurchContext();
+  const songs = await getPublishedSongsCached(churchId);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8">

@@ -23,10 +23,10 @@ export function useEffectiveWorshipCollectionTab() {
 
   useEffect(() => {
     const nextTab = routeTab ?? queryTab;
-    if (nextTab && nextTab !== storedTab) {
-      setStoredTab(nextTab);
-    }
-  }, [routeTab, queryTab, storedTab, setStoredTab]);
+    if (!nextTab) return;
+
+    setStoredTab((current) => (current === nextTab ? current : nextTab));
+  }, [routeTab, queryTab, setStoredTab]);
 
   const activeTab: WorshipCollectionTab = routeTab ?? queryTab ?? storedTab;
 

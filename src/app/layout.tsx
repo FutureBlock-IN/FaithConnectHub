@@ -11,6 +11,8 @@ import Providers from "@/components/provider";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { siteConfig } from "@/config/site";
 import { env } from "@/lib/env";
+import { getActiveChurchesCached } from "@/lib/cached-church-data";
+import { getActiveChurchIdFromCookies } from "@/lib/church-server";
 import * as fonts from "@/lib/fonts";
 import { absoluteUrl, cn } from "@/lib/utils";
 
@@ -25,6 +27,11 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const { theme, radius } = JSON.parse(
     themeConfig?.value ?? '{"theme":"default","radius":"default"}'
   ) as ThemeConfig;
+
+  const [initialChurches, initialActiveChurchId] = await Promise.all([
+    getActiveChurchesCached(),
+    getActiveChurchIdFromCookies(),
+  ]);
 
   return (
     <React.StrictMode>
@@ -41,7 +48,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             : ({ "--radius": `${radius}rem` } as React.CSSProperties)
           }
         >
-          <Providers>
+          <Providers
+            initialChurches={initialChurches}
+            initialActiveChurchId={initialActiveChurchId}
+          >
             {children}
           </Providers>
 

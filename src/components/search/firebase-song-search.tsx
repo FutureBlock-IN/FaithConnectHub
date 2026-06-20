@@ -7,6 +7,7 @@ import type { FirebaseSong } from "@/types/firebase-song";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import { ImageWithFallback } from "@/components/image-with-fallback";
+import { useActiveChurchScope } from "@/context/active-church-context";
 import { searchSongs } from "@/lib/firebase-queries";
 import { getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 import { DEFAULT_SONG_COVER } from "@/config/site";
@@ -19,17 +20,25 @@ type FirebaseSongSearchProps = {
 export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
   const [songs, setSongs] = React.useState<FirebaseSong[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const { churchId, isLoading: churchResolving } = useActiveChurchScope();
 
   React.useEffect(() => {
     (async () => {
       if (!query.trim()) {
         setSongs([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!churchId) {
+        setSongs([]);
+        setLoading(churchResolving);
         return;
       }
 
       setLoading(true);
       try {
-        const results = await searchSongs(query);
+        const results = await searchSongs(churchId, query);
         setSongs(results);
       } catch {
         setSongs([]);
@@ -37,7 +46,7 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
         setLoading(false);
       }
     })();
-  }, [query]);
+  }, [churchId, churchResolving, query]);
 
   if (!query.trim()) return null;
 

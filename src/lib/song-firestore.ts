@@ -7,6 +7,8 @@ import type {
   UpdateSongInput,
 } from "@/types/firebase-song";
 
+import { resolveDocumentChurchId } from "./church-scope";
+
 export const SONG_CATEGORIES = [
   "Worship",
   "Praise",
@@ -118,6 +120,7 @@ export function normalizeSongFromFirestore(
 
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     songTitle,
     alternateTitle,
     artist: String(data.artist ?? "").trim() || undefined,

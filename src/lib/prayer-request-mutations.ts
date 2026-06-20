@@ -26,10 +26,14 @@ import {
  * so security rules see request.auth (server actions do not attach auth).
  */
 export async function createPrayerRequest(
+  churchId: string,
   values: PrayerRequestSubmitValues
 ): Promise<string> {
   const sanitized = sanitizePrayerRequestInput(values);
-  const payload = buildPrayerRequestCreatePayload(sanitized);
+  const payload = buildPrayerRequestCreatePayload({
+    ...sanitized,
+    churchId,
+  });
   const now = Timestamp.now();
 
   try {

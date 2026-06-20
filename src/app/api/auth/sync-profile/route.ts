@@ -81,6 +81,9 @@ export async function POST(request: Request) {
     lastName: String(data.lastName ?? ""),
     email: String(data.email ?? ""),
     role: data.role ?? "user",
+    churchId: data.churchId ?? null,
+    churchRole: data.churchRole ?? null,
+    managedChurchIds: data.managedChurchIds ?? [],
     createdAt: data.createdAt ?? null,
   });
 }

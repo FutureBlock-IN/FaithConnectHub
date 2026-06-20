@@ -1,5 +1,6 @@
 export type FirebaseArticle = {
   id: string;
+  churchId: string;
   title: string;
   category: string;
   shortDescription: string;
@@ -17,6 +18,7 @@ export type FirebaseArticle = {
 };
 
 export type CreateArticleInput = {
+  churchId: string;
   title: string;
   category: string;
   shortDescription: string;

@@ -1,6 +1,7 @@
 import type { FirebaseArticle } from "@/types/firebase-article";
 import { ARTICLE_CATEGORIES } from "@/types/firebase-article";
 
+import { resolveDocumentChurchId } from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 export const ARTICLES_COLLECTION = "articles";
@@ -42,6 +43,7 @@ export function normalizeArticleFromFirestore(
 
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     title: String(data.title ?? ""),
     category: resolveCategory(data, tags),
     shortDescription: String(data.shortDescription ?? ""),

@@ -1,19 +1,15 @@
 import { RequireAuth } from "@/components/auth/require-auth";
+import { ProfilePageClient } from "@/components/profile/profile-page-client";
 
 export const metadata = {
   title: "Profile",
-  description: "Your profile",
+  description: "Your profile and saved library",
 };
 
 export default function ProfilePage() {
   return (
     <RequireAuth>
-      <div className="container py-8">
-        <h1 className="font-heading text-3xl font-bold">Profile</h1>
-        <p className="mt-2 text-muted-foreground">
-          View and manage your account profile.
-        </p>
-      </div>
+      <ProfilePageClient />
     </RequireAuth>
   );
 }

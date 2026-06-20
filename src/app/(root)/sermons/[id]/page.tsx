@@ -6,6 +6,7 @@ import { SermonMediaSection } from "@/components/sermons/sermon-media-section";
 import { ShareContentButton } from "@/components/share-content-button";
 import { siteConfig } from "@/config/site";
 import { isAuthenticatedServer } from "@/lib/auth-server";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getSermonByIdCached } from "@/lib/cached-worship-data";
 import { getSongCoverUrl } from "@/lib/utils";
 
@@ -17,7 +18,8 @@ type SermonPageProps = {
 
 export async function generateMetadata({ params }: SermonPageProps) {
   const { id } = await params;
-  const sermon = await getSermonByIdCached(decodeURIComponent(id));
+  const { churchId } = await getPageChurchContext();
+  const sermon = await getSermonByIdCached(churchId, decodeURIComponent(id));
 
   if (!sermon || !sermon.isPublished) {
     return { title: "Sermon Not Found" };
@@ -39,7 +41,8 @@ export default async function SermonPage({ params }: SermonPageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
-  const sermon = await getSermonByIdCached(decodedId);
+  const { churchId } = await getPageChurchContext();
+  const sermon = await getSermonByIdCached(churchId, decodedId);
 
   if (!sermon || !sermon.isPublished) {
     notFound();

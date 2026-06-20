@@ -1,5 +1,6 @@
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 
+import { resolveDocumentChurchId } from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 /** Current Firestore collection for sermons. */
@@ -42,6 +43,7 @@ export function normalizeSermonFromFirestore(
 
   return {
     id,
+    churchId: resolveDocumentChurchId(data),
     title: String(data.title ?? ""),
     subtitle: String(data.subtitle ?? "").trim() || undefined,
     scriptureReference: String(data.scriptureReference ?? "").trim(),

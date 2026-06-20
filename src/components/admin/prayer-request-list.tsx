@@ -30,6 +30,7 @@ import {
   deletePrayerRequest,
   updatePrayerRequestStatus,
 } from "@/lib/prayer-request-mutations";
+import { notifyIfPrayerApproved } from "@/lib/notify-if-published";
 import { getPrayerRequestDisplayName, formatPrayerDate } from "@/lib/prayer-request-firestore";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +80,12 @@ function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
     setUpdatingId(request.id);
     try {
       await updatePrayerRequestStatus(request.id, status);
+      await notifyIfPrayerApproved({
+        contentId: request.id,
+        contentTitle: request.title,
+        previousStatus: request.status,
+        newStatus: status,
+      });
       toast.success(
         status === "approved"
           ? "Prayer request approved"

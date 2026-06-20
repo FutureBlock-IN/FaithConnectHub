@@ -12,6 +12,7 @@ import {
 
 import type { FirebaseEvent } from "@/types/firebase-event";
 
+import { useActiveChurchScope } from "@/context/active-church-context";
 import { db } from "@/lib/firebase";
 import {
   EVENTS_COLLECTION,
@@ -30,12 +31,18 @@ export function usePublishedEvents(
   options?: UsePublishedEventsOptions
 ) {
   const { maxItems, upcomingOnly = false } = options ?? {};
+  const { churchId, isLoading: churchResolving } = useActiveChurchScope();
   const [events, setEvents] = useState(initialData);
-  const [loading, setLoading] = useState(initialData.length === 0);
+  const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
+    if (!churchId) return;
+
+    setSyncing(true);
+
     const baseQuery = query(
       collection(db, EVENTS_COLLECTION),
+      where("churchId", "==", churchId),
       where("status", "==", "published"),
       orderBy("eventDate", "asc")
     );
@@ -62,15 +69,17 @@ export function usePublishedEvents(
         }
 
         setEvents(next);
-        setLoading(false);
+        setSyncing(false);
       },
       () => {
-        setLoading(false);
+        setSyncing(false);
       }
     );
 
     return unsubscribe;
-  }, [maxItems, upcomingOnly]);
+  }, [churchId, maxItems, upcomingOnly]);
+
+  const loading = churchResolving || syncing;
 
   const grouped = useMemo(
     () => splitEventsBySchedule(events),

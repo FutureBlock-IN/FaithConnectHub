@@ -1,8 +1,10 @@
 import { FirebaseSongCard, songsAlbumGridClassName } from "@/components/music/firebase-song-card";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getAllSongs } from "@/lib/firebase-queries";
 
 export async function FirebaseTopSongs() {
-  const songs = await getAllSongs();
+  const { churchId } = await getPageChurchContext();
+  const songs = await getAllSongs(churchId);
   const preview = songs.slice(0, 12);
 
   if (preview.length === 0) {

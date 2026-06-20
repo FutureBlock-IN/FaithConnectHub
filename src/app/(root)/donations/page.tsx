@@ -1,4 +1,5 @@
 import { DonationsListClient } from "@/components/donations/donations-list-client";
+import { getPageChurchContext } from "@/lib/church-page-data";
 import { getActiveDonationCampaignsCached } from "@/lib/cached-donation-data";
 import { siteConfig } from "@/config/site";
 
@@ -10,7 +11,8 @@ export const metadata = {
 };
 
 export default async function DonationsPage() {
-  const campaigns = await getActiveDonationCampaignsCached();
+  const { churchId } = await getPageChurchContext();
+  const campaigns = await getActiveDonationCampaignsCached(churchId);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8">

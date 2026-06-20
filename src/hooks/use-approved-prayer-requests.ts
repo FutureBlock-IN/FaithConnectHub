@@ -12,6 +12,7 @@ import {
 
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 
+import { useActiveChurchScope } from "@/context/active-church-context";
 import { db } from "@/lib/firebase";
 import {
   normalizePrayerRequestFromFirestore,
@@ -22,12 +23,18 @@ export function useApprovedPrayerRequests(
   initialData: FirebasePrayerRequest[] = [],
   maxItems?: number
 ) {
+  const { churchId, isLoading: churchResolving } = useActiveChurchScope();
   const [requests, setRequests] = useState(initialData);
-  const [loading, setLoading] = useState(initialData.length === 0);
+  const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
+    if (!churchId) return;
+
+    setSyncing(true);
+
     const baseQuery = query(
       collection(db, PRAYER_REQUESTS_COLLECTION),
+      where("churchId", "==", churchId),
       where("status", "==", "approved"),
       orderBy("createdAt", "desc")
     );
@@ -45,15 +52,17 @@ export function useApprovedPrayerRequests(
             )
           )
         );
-        setLoading(false);
+        setSyncing(false);
       },
       () => {
-        setLoading(false);
+        setSyncing(false);
       }
     );
 
     return unsubscribe;
-  }, [maxItems]);
+  }, [churchId, maxItems]);
+
+  const loading = churchResolving || syncing;
 
   return { requests, loading };
 }

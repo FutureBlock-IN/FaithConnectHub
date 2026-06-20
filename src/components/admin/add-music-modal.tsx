@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { addSong, updateSong } from "@/lib/firebase-queries";
+import { useAdminChurchId } from "@/hooks/use-admin-church-id";
 import { notifyIfNewlyPublished } from "@/lib/notify-if-published";
 import { SONG_CATEGORIES } from "@/lib/song-firestore";
 import { uploadSongFileLocal } from "@/lib/local-upload";
@@ -41,6 +42,7 @@ type AddMusicModalProps = {
   onClose: () => void;
   onSave: () => void;
   initialSong?: FirebaseSong | null;
+  churchId: string;
 };
 
 type SongFormData = {
@@ -145,6 +147,7 @@ export function AddMusicModal({
   onClose,
   onSave,
   initialSong,
+  churchId,
 }: AddMusicModalProps) {
   const [formData, setFormData] = useState<SongFormData>(EMPTY_FORM);
   const [files, setFiles] = useState<{ cover?: File; audio?: File }>({});
@@ -308,7 +311,7 @@ export function AddMusicModal({
 
         toast.success("Song updated successfully");
       } else {
-        const songId = await addSong({
+        const songId = await addSong(churchId, {
           ...payload,
           imageUrl: "",
           audioUrl: "",
