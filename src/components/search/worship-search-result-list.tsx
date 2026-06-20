@@ -6,7 +6,7 @@ import type { WorshipCollectionTab } from "@/hooks/use-store";
 import { getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 
 export type WorshipSearchResultItem = {
-  key: string;
+  resultId: string;
   href: string;
   title: string;
   subtitle?: string;
@@ -32,7 +32,7 @@ export function buildWorshipSearchResults({
 }: BuildWorshipSearchResultsArgs): WorshipSearchResultItem[] {
   if (activeTab === "songs") {
     return songs.map((song, index) => ({
-      key: `search-song-${index}-${song.id || "unknown"}`,
+      resultId: `search-song-${song.id || index}`,
       href: `/songs/${encodeURIComponent(song.id)}`,
       title: getSongDisplayTitle(song),
       subtitle: getSongAlternateTitle(song),
@@ -42,7 +42,7 @@ export function buildWorshipSearchResults({
 
   if (activeTab === "sermons") {
     return sermons.map((sermon, index) => ({
-      key: `search-sermon-${index}-${sermon.id || "unknown"}`,
+      resultId: `search-sermon-${sermon.id || index}`,
       href: `/sermons/${encodeURIComponent(sermon.id)}`,
       title: sermon.title,
       subtitle: getSermonSubtitle(sermon),
@@ -51,7 +51,7 @@ export function buildWorshipSearchResults({
   }
 
   return articles.map((article, index) => ({
-    key: `search-article-${index}-${article.id || "unknown"}`,
+    resultId: `search-article-${article.id || index}`,
     href: `/articles/${encodeURIComponent(article.id)}`,
     title: article.title,
     subtitle: article.shortDescription,

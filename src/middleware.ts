@@ -11,19 +11,19 @@ import {
 const AUTH_ONLY_PATHS = ["/signin", "/signup", "/forgot-password"];
 
 /**
- * Protected route prefixes. A request is protected when its path equals the
- * prefix or starts with `${prefix}/`. Content detail routes (songs/sermons/
- * articles) have no public list page, so the whole prefix is protected.
+ * Public browse pages for worship content. Detail routes under these prefixes
+ * still require authentication.
  */
+const PUBLIC_CONTENT_LIST_PATHS = ["/songs", "/sermons", "/articles"];
+
 const PROTECTED_PREFIXES = [
-  "/songs",
-  "/sermons",
-  "/articles",
   "/profile",
   "/favorites",
   "/groups",
   "/dashboard",
 ];
+
+const PROTECTED_CONTENT_DETAIL_PREFIXES = ["/songs", "/sermons", "/articles"];
 
 function isPathMatch(pathname: string, paths: string[]) {
   return paths.some(
@@ -36,6 +36,16 @@ function isPathMatch(pathname: string, paths: string[]) {
  * sub-route — detail (`/prayer-requests/[id]`) and submit — requires auth.
  */
 function isProtectedPath(pathname: string) {
+  if (PUBLIC_CONTENT_LIST_PATHS.includes(pathname)) return false;
+
+  if (
+    PROTECTED_CONTENT_DETAIL_PREFIXES.some((prefix) =>
+      pathname.startsWith(`${prefix}/`)
+    )
+  ) {
+    return true;
+  }
+
   if (isPathMatch(pathname, PROTECTED_PREFIXES)) return true;
   if (pathname.startsWith("/prayer-requests/")) return true;
   return false;

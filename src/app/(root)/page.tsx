@@ -1,16 +1,13 @@
 import { HomeAdminFab } from "@/components/home-admin-fab";
-import { UpcomingEventsSectionClient } from "@/components/events/upcoming-events-section-client";
-import { PrayerWallSectionClient } from "@/components/prayer/prayer-wall-section-client";
-import { WorshipCollectionSection } from "@/components/worship/worship-collection-section";
+import { HomeHeroSection } from "@/components/home/home-hero-section";
+import { HomeSongsSection } from "@/components/home/home-songs-section";
 import { siteConfig } from "@/config/site";
-import { getUpcomingEventsCached } from "@/lib/cached-event-data";
-import { getLatestApprovedPrayerRequestsCached } from "@/lib/cached-prayer-data";
-import { getWorshipCatalogCached } from "@/lib/cached-worship-data";
+import { getPublishedSongsCached } from "@/lib/cached-worship-data";
 
 export const revalidate = 60;
 
 const title = siteConfig.name;
-const description = `Listen to Christian music and read Telugu and English lyrics on ${siteConfig.name}.`;
+const description = `Christian worship songs and lyrics — listen, sing, and grow in faith on ${siteConfig.name}.`;
 
 export const metadata = {
   title,
@@ -27,33 +24,13 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [{ songs, sermons, articles }, latestPrayerRequests, upcomingEvents] =
-    await Promise.all([
-      getWorshipCatalogCached(),
-      getLatestApprovedPrayerRequestsCached(3),
-      getUpcomingEventsCached(),
-    ]);
+  const songs = await getPublishedSongsCached();
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-8 sm:space-y-10">
       <HomeAdminFab />
-      <WorshipCollectionSection
-        songs={songs}
-        sermons={sermons}
-        articles={articles}
-        songsTabExtra={
-          <>
-            <PrayerWallSectionClient
-              initialRequests={latestPrayerRequests}
-              limit={3}
-            />
-            <UpcomingEventsSectionClient
-              initialEvents={upcomingEvents}
-              limit={3}
-            />
-          </>
-        }
-      />
+      <HomeHeroSection />
+      <HomeSongsSection initialSongs={songs} />
     </div>
   );
 }

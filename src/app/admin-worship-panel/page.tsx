@@ -17,12 +17,14 @@ import { toast } from "sonner";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
+import type { FirebaseDonation, FirebaseDonationCampaign } from "@/types/firebase-donation";
 import type { FirebaseEvent } from "@/types/firebase-event";
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { ArticleList } from "@/components/admin/article-list";
+import { DonationCampaignList } from "@/components/admin/donation-campaign-list";
 import { EventList } from "@/components/admin/event-list";
 import { PrayerRequestList } from "@/components/admin/prayer-request-list";
 import { PrayerRequestsDashboardCard } from "@/components/admin/prayer-requests-dashboard-card";
@@ -32,7 +34,14 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
+import { subscribeCollectionWithFallback } from "@/lib/firestore-realtime-subscribe";
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
+import {
+  DONATION_CAMPAIGNS_COLLECTION,
+  DONATIONS_COLLECTION,
+  normalizeDonationCampaignFromFirestore,
+  normalizeDonationFromFirestore,
+} from "@/lib/donation-firestore";
 import {
   EVENTS_COLLECTION,
   normalizeEventFromFirestore,
@@ -67,14 +76,28 @@ const AddEventModal = dynamic(
     import("@/components/admin/add-event-modal").then((mod) => mod.AddEventModal),
   { ssr: false }
 );
+const AddDonationCampaignModal = dynamic(
+  () =>
+    import("@/components/admin/add-donation-campaign-modal").then(
+      (mod) => mod.AddDonationCampaignModal
+    ),
+  { ssr: false }
+);
 
-type AdminTab = "songs" | "sermons" | "articles" | "events" | "prayers";
+type AdminTab =
+  | "songs"
+  | "sermons"
+  | "articles"
+  | "events"
+  | "donations"
+  | "prayers";
 
 function parseAdminTab(value: string | null): AdminTab {
   if (
     value === "sermons" ||
     value === "articles" ||
     value === "events" ||
+    value === "donations" ||
     value === "prayers"
   ) {
     return value;
@@ -96,6 +119,8 @@ export default function AdminPage() {
   const [sermons, setSermons] = useState<FirebaseSermon[]>([]);
   const [articles, setArticles] = useState<FirebaseArticle[]>([]);
   const [events, setEvents] = useState<FirebaseEvent[]>([]);
+  const [campaigns, setCampaigns] = useState<FirebaseDonationCampaign[]>([]);
+  const [donations, setDonations] = useState<FirebaseDonation[]>([]);
   const [prayerRequests, setPrayerRequests] = useState<FirebasePrayerRequest[]>(
     []
   );
@@ -104,12 +129,14 @@ export default function AdminPage() {
   const [sermonsLoading, setSermonsLoading] = useState(true);
   const [articlesLoading, setArticlesLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [donationsLoading, setDonationsLoading] = useState(true);
   const [prayersLoading, setPrayersLoading] = useState(true);
 
   const [songModalOpen, setSongModalOpen] = useState(false);
   const [sermonModalOpen, setSermonModalOpen] = useState(false);
   const [articleModalOpen, setArticleModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [donationModalOpen, setDonationModalOpen] = useState(false);
 
   const [selectedSong, setSelectedSong] = useState<FirebaseSong | null>(null);
   const [selectedSermon, setSelectedSermon] =
@@ -117,6 +144,8 @@ export default function AdminPage() {
   const [selectedArticle, setSelectedArticle] =
     useState<FirebaseArticle | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<FirebaseEvent | null>(null);
+  const [selectedCampaign, setSelectedCampaign] =
+    useState<FirebaseDonationCampaign | null>(null);
 
   const [loadedSongsTab, setLoadedSongsTab] = useState(
     () => parseAdminTab(searchParams.get("tab")) === "songs"
@@ -130,12 +159,16 @@ export default function AdminPage() {
   const [loadedEventsTab, setLoadedEventsTab] = useState(
     () => parseAdminTab(searchParams.get("tab")) === "events"
   );
+  const [loadedDonationsTab, setLoadedDonationsTab] = useState(
+    () => parseAdminTab(searchParams.get("tab")) === "donations"
+  );
 
   useEffect(() => {
     if (activeTab === "songs") setLoadedSongsTab(true);
     if (activeTab === "sermons") setLoadedSermonsTab(true);
     if (activeTab === "articles") setLoadedArticlesTab(true);
     if (activeTab === "events") setLoadedEventsTab(true);
+    if (activeTab === "donations") setLoadedDonationsTab(true);
   }, [activeTab]);
 
   useEffect(() => {
@@ -301,6 +334,55 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [loadedEventsTab]);
 
+  useEffect(() => {
+    if (!loadedDonationsTab) return;
+
+    const campaignsCol = collection(db, DONATION_CAMPAIGNS_COLLECTION);
+    const donationsCol = collection(db, DONATIONS_COLLECTION);
+
+    const unsubscribeCampaigns = subscribeCollectionWithFallback(
+      campaignsCol,
+      "createdAt",
+      {
+        mapSnapshot: (snapshot) =>
+          snapshot.docs.map((docSnap) =>
+            normalizeDonationCampaignFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          ),
+        sortResults: (items) =>
+          [...items].sort((a, b) => b.createdAt - a.createdAt),
+        onData: setCampaigns,
+        onReady: () => setDonationsLoading(false),
+        onError: (message) => toast.error(message),
+      }
+    );
+
+    const unsubscribeDonations = subscribeCollectionWithFallback(
+      donationsCol,
+      "createdAt",
+      {
+        mapSnapshot: (snapshot) =>
+          snapshot.docs.map((docSnap) =>
+            normalizeDonationFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          ),
+        sortResults: (items) =>
+          [...items].sort((a, b) => b.createdAt - a.createdAt),
+        onData: setDonations,
+        onError: (message) => toast.error(message),
+      }
+    );
+
+    return () => {
+      unsubscribeCampaigns();
+      unsubscribeDonations();
+    };
+  }, [loadedDonationsTab]);
+
   const publishedSongs = useMemo(
     () => songs.filter((s) => s.published !== false).length,
     [songs]
@@ -316,6 +398,19 @@ export default function AdminPage() {
   const publishedEvents = useMemo(
     () => events.filter((event) => event.status === "published").length,
     [events]
+  );
+  const activeCampaigns = useMemo(
+    () => campaigns.filter((campaign) => campaign.status === "active").length,
+    [campaigns]
+  );
+  const completedDonations = useMemo(
+    () => donations.filter((donation) => donation.paymentStatus === "completed"),
+    [donations]
+  );
+  const amountRaised = useMemo(
+    () =>
+      completedDonations.reduce((total, donation) => total + donation.amount, 0),
+    [completedDonations]
   );
   const pendingPrayers = useMemo(
     () => prayerRequests.filter((request) => request.status === "pending").length,
@@ -346,6 +441,9 @@ export default function AdminPage() {
     } else if (activeTab === "events") {
       setSelectedEvent(null);
       setEventModalOpen(true);
+    } else if (activeTab === "donations") {
+      setSelectedCampaign(null);
+      setDonationModalOpen(true);
     }
   }
 
@@ -358,7 +456,9 @@ export default function AdminPage() {
           ? "Add Article"
           : activeTab === "events"
             ? "Create Event"
-            : "Prayer Requests";
+            : activeTab === "donations"
+              ? "Create Campaign"
+              : "Prayer Requests";
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
@@ -377,7 +477,7 @@ export default function AdminPage() {
                 Worship Admin
               </h1>
               <p className="text-xs text-muted-foreground">
-                Manage songs, sermons, articles, events, and prayer requests
+                Manage songs, sermons, articles, events, donations, and prayer requests
               </p>
             </div>
           </div>
@@ -409,7 +509,7 @@ export default function AdminPage() {
         onValueChange={(v) => setActiveTab(v as AdminTab)}
         className="w-full space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-5 sm:w-auto sm:inline-flex">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-3 lg:inline-flex lg:w-auto">
           <TabsTrigger value="songs" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Songs
           </TabsTrigger>
@@ -421,6 +521,9 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="events" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Events
+          </TabsTrigger>
+          <TabsTrigger value="donations" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
+            Donations
           </TabsTrigger>
           <TabsTrigger value="prayers" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
             Prayer Requests
@@ -548,6 +651,62 @@ export default function AdminPage() {
           ) : null}
         </TabsContent>
 
+        <TabsContent value="donations" className="mt-0 space-y-4">
+          {activeTab === "donations" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                {[
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Total Donations",
+                    value: donationsLoading ? "—" : completedDonations.length,
+                  },
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Active Campaigns",
+                    value: donationsLoading ? "—" : activeCampaigns,
+                  },
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Amount Raised",
+                    value: donationsLoading ? "—" : amountRaised.toLocaleString(),
+                  },
+                  {
+                    icon: <HeartHandshake className="h-4 w-4" />,
+                    label: "Recent Gifts",
+                    value: donationsLoading ? "—" : donations.slice(0, 5).length,
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-card px-4 py-4 shadow-sm"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {stat.icon}
+                    </div>
+                    <p className="font-heading text-xl font-bold sm:text-2xl">
+                      {stat.value}
+                    </p>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <DonationCampaignList
+                campaigns={campaigns}
+                recentDonations={donations.slice(0, 10)}
+                loading={donationsLoading}
+                onEdit={(campaign) => {
+                  setSelectedCampaign(campaign);
+                  setDonationModalOpen(true);
+                }}
+                onDelete={() => {}}
+              />
+            </>
+          ) : null}
+        </TabsContent>
+
         <TabsContent value="prayers" className="mt-0 space-y-4">
           {activeTab === "prayers" ?
             <>
@@ -617,6 +776,12 @@ export default function AdminPage() {
         onClose={() => { setEventModalOpen(false); setSelectedEvent(null); }}
         onSave={() => { setEventModalOpen(false); setSelectedEvent(null); }}
         initialEvent={selectedEvent}
+      />
+      <AddDonationCampaignModal
+        isOpen={donationModalOpen}
+        onClose={() => { setDonationModalOpen(false); setSelectedCampaign(null); }}
+        onSave={() => { setDonationModalOpen(false); setSelectedCampaign(null); }}
+        initialCampaign={selectedCampaign}
       />
     </div>
   );

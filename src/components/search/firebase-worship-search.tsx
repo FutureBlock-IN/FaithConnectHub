@@ -81,9 +81,9 @@ export function FirebaseWorshipSearch({ query }: FirebaseWorshipSearchProps) {
     <div className="w-full space-y-3 py-4">
       <p className="font-heading text-lg font-semibold">{sectionLabel}</p>
       <div className="flex max-h-96 w-full flex-col gap-2 overflow-y-auto pr-2">
-        {results.map((result) => (
+        {results.map((result, index) => (
           <SearchResultRow
-            key={result.key}
+            key={result.resultId || `worship-search-${index}`}
             href={result.href}
             title={result.title}
             subtitle={result.subtitle}
