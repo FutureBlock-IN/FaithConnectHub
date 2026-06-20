@@ -1,7 +1,17 @@
 /**
- * Public routes — accessible without authentication
+ * Public routes — accessible without authentication.
+ * Includes the prayer requests list/preview page; its sub-routes are protected.
  */
-export const publicRoutes = ["/", "/about", "/privacy", "/signin", "/signup", "/forgot-password"];
+export const publicRoutes = [
+  "/",
+  "/about",
+  "/privacy",
+  "/search",
+  "/signin",
+  "/signup",
+  "/forgot-password",
+  "/prayer-requests",
+];
 
 /**
  * Auth routes — redirect authenticated users to home
@@ -9,9 +19,21 @@ export const publicRoutes = ["/", "/about", "/privacy", "/signin", "/signup", "/
 export const authRoutes = ["/signin", "/signup", "/forgot-password"];
 
 /**
- * Protected routes — require authentication
+ * Protected route prefixes — require authentication.
+ * Note: `/prayer-requests/*` (detail + submit) is protected separately in
+ * middleware so the bare `/prayer-requests` list stays public.
  */
-export const protectedRoutes = ["/groups", "/profile", "/events", "/dashboard"];
+export const protectedRoutes = [
+  "/songs",
+  "/sermons",
+  "/articles",
+  "/profile",
+  "/favorites",
+  "/groups",
+  "/events",
+  "/dashboard",
+  "/prayer-requests/submit",
+];
 
 /**
  * Content detail routes — require authentication to view (home browsing stays public)

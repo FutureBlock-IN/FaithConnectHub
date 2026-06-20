@@ -10,6 +10,8 @@ import {
 
   Cog,
 
+  HeartHandshake,
+
   Home,
 
   Info,
@@ -373,6 +375,20 @@ export function AuthNav() {
             <User2 className="mr-2 size-4" />
 
             Profile
+
+          </Link>
+
+        </DropdownMenuItem>
+
+
+
+        <DropdownMenuItem asChild>
+
+          <Link href="/prayer-requests">
+
+            <HeartHandshake className="mr-2 size-4" />
+
+            Prayer Requests
 
           </Link>
 

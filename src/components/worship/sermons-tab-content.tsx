@@ -8,6 +8,7 @@ import { FirebaseSermonCard } from "@/components/worship/firebase-sermon-card";
 import { CollectionTabHeader } from "@/components/worship/collection-tab-header";
 import { worshipContentGridClassName } from "@/components/worship/worship-card-styles";
 import { TabEmptyState } from "@/components/worship/songs-tab-content";
+import { useRealtimeSermons } from "@/hooks/use-worship-realtime";
 
 type SermonsTabContentProps = {
   initialSermons: FirebaseSermon[];
@@ -16,9 +17,10 @@ type SermonsTabContentProps = {
 export function SermonsTabContent({
   initialSermons,
 }: SermonsTabContentProps) {
+  const liveSermons = useRealtimeSermons(initialSermons);
   const sermons = useMemo(
-    () => initialSermons.filter((sermon) => sermon.isPublished),
-    [initialSermons]
+    () => liveSermons.filter((sermon) => sermon.isPublished),
+    [liveSermons]
   );
 
   if (sermons.length === 0) {

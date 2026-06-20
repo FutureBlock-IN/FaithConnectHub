@@ -8,6 +8,7 @@ import { FirebaseArticleCard } from "@/components/worship/firebase-article-card"
 import { CollectionTabHeader } from "@/components/worship/collection-tab-header";
 import { worshipContentGridClassName } from "@/components/worship/worship-card-styles";
 import { TabEmptyState } from "@/components/worship/songs-tab-content";
+import { useRealtimeArticles } from "@/hooks/use-worship-realtime";
 
 type ArticlesTabContentProps = {
   initialArticles: FirebaseArticle[];
@@ -16,9 +17,10 @@ type ArticlesTabContentProps = {
 export function ArticlesTabContent({
   initialArticles,
 }: ArticlesTabContentProps) {
+  const liveArticles = useRealtimeArticles(initialArticles);
   const articles = useMemo(
-    () => initialArticles.filter((article) => article.isPublished),
-    [initialArticles]
+    () => liveArticles.filter((article) => article.isPublished),
+    [liveArticles]
   );
 
   if (articles.length === 0) {

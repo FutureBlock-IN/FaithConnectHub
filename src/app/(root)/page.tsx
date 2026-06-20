@@ -1,6 +1,8 @@
 import { HomeAdminFab } from "@/components/home-admin-fab";
+import { PrayerWallSectionClient } from "@/components/prayer/prayer-wall-section-client";
 import { WorshipCollectionSection } from "@/components/worship/worship-collection-section";
 import { siteConfig } from "@/config/site";
+import { getLatestApprovedPrayerRequestsCached } from "@/lib/cached-prayer-data";
 import { getWorshipCatalogCached } from "@/lib/cached-worship-data";
 
 export const revalidate = 60;
@@ -23,7 +25,10 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const { songs, sermons, articles } = await getWorshipCatalogCached();
+  const [{ songs, sermons, articles }, latestPrayerRequests] = await Promise.all([
+    getWorshipCatalogCached(),
+    getLatestApprovedPrayerRequestsCached(3),
+  ]);
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -32,6 +37,12 @@ export default async function HomePage() {
         songs={songs}
         sermons={sermons}
         articles={articles}
+        songsTabExtra={
+          <PrayerWallSectionClient
+            initialRequests={latestPrayerRequests}
+            limit={3}
+          />
+        }
       />
     </div>
   );

@@ -8,6 +8,7 @@ import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import type { FirebaseSong } from "@/types/firebase-song";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { DEFAULT_SONG_COVER } from "@/config/site";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { usePlaySong } from "@/hooks/use-play-song";
 import {
   useCurrentSongIndex,
@@ -36,6 +37,7 @@ function SongCoverPlayControl({
   isCurrentSong: boolean;
 }) {
   const { playSong } = usePlaySong();
+  const { ensureAuth } = useAuthGuard();
   const playing = useSyncExternalStore(
     subscribePlaybackPlaying,
     getPlaybackPlaying,
@@ -50,6 +52,8 @@ function SongCoverPlayControl({
   function handlePlayClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
+
+    if (!ensureAuth()) return;
 
     if (isCurrentSong) {
       togglePlayback();
@@ -90,6 +94,7 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   className,
 }: FirebaseSongCardProps) {
   const { playSong } = usePlaySong();
+  const { ensureAuth } = useAuthGuard();
   const [queue] = useQueue();
   const [currentIndex] = useCurrentSongIndex();
 
@@ -110,6 +115,7 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
     if (!hasAudio) return;
     event.preventDefault();
     event.stopPropagation();
+    if (!ensureAuth()) return;
     playSong(song);
   }
 

@@ -63,6 +63,7 @@ import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
 import { NavbarSearchSection } from "../search/navbar-search-section";
+import { AuthenticatedNavLinks } from "../site-header/authenticated-nav-links";
 import { AuthNav } from "../site-header/auth-nav";
 
 // NO "use client" here — this is a Server Component
@@ -96,6 +97,7 @@ export async function Navbar() {
 
         {/* Desktop nav */}
         <nav className="hidden shrink-0 items-center gap-1 md:flex">
+          <AuthenticatedNavLinks />
           <Link
             href="/about"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

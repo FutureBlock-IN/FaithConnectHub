@@ -15,12 +15,13 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useGlobalAudioPlayer } from "react-use-audio-player";
+import { useAudioPlayerContext } from "react-use-audio-player";
 
 import {
   useCurrentSongIndex,
   useIsPlayerInit,
   useIsTyping,
+  usePlayerVolume,
   useQueue,
   useStreamQuality,
 } from "@/hooks/use-store";
@@ -64,8 +65,12 @@ function usePlayerEngine() {
   const [streamQuality] = useStreamQuality();
   const [currentIndex, setCurrentIndex] = useCurrentSongIndex();
   const [isPlayerInit, setIsPlayerInit] = useIsPlayerInit();
+  const [storedVolume, setStoredVolume] = usePlayerVolume();
   const [isTyping] = useIsTyping();
   const frameRef = React.useRef<number>(0);
+  const loadedSrcRef = React.useRef<string | null>(null);
+  const storedVolumeRef = React.useRef(storedVolume);
+  storedVolumeRef.current = storedVolume;
   const [isShuffle, setIsShuffle] = React.useState(false);
   const [loopPlaylist, setLoopPlaylist] = React.useState(false);
   const [pos, setPos] = React.useState(0);
@@ -86,7 +91,8 @@ function usePlayerEngine() {
     setVolume,
     seek,
     isReady,
-  } = useGlobalAudioPlayer();
+    src,
+  } = useAudioPlayerContext();
 
   React.useEffect(() => {
     return registerPlaybackBridge({
@@ -132,21 +138,41 @@ function usePlayerEngine() {
       const currentSong = queue[currentIndex];
       const audioSrc = getDownloadLink(currentSong.download_url, streamQuality);
 
+      if (loadedSrcRef.current === audioSrc && src === audioSrc) {
+        return;
+      }
+
+      loadedSrcRef.current = audioSrc;
+
       try {
         load(audioSrc, {
           html5: true,
           autoplay: true,
           initialMute: false,
+          initialVolume: storedVolumeRef.current,
           onend: onEndHandler,
         });
       } catch {
+        loadedSrcRef.current = null;
         toast({
           description: "Playback error occurred",
           variant: "destructive",
         });
       }
     }
-  }, [queue, streamQuality, currentIndex, isPlayerInit, load, onEndHandler]);
+  }, [queue, streamQuality, currentIndex, isPlayerInit, load, onEndHandler, src]);
+
+  React.useEffect(() => {
+    if (!queue.length) {
+      loadedSrcRef.current = null;
+    }
+  }, [queue.length]);
+
+  function setVolumeWithPersistence(nextVolume: number) {
+    const clamped = Math.min(1, Math.max(0, nextVolume));
+    setVolume(clamped);
+    setStoredVolume(clamped);
+  }
 
   React.useEffect(() => {
     if (isDragging || !playing) {
@@ -244,9 +270,9 @@ function usePlayerEngine() {
       } else if (e.key === "p" || (e.shiftKey && e.key === "ArrowLeft")) {
         skipToPrev();
       } else if (e.shiftKey && e.key === "ArrowUp") {
-        setVolume(volume + 0.05);
+        setVolumeWithPersistence(volume + 0.05);
       } else if (e.shiftKey && e.key === "ArrowDown") {
-        setVolume(volume - 0.05);
+        setVolumeWithPersistence(volume - 0.05);
       } else if (e.key === "l") {
         loopHandler();
       } else if (e.key === "s") {
@@ -275,7 +301,7 @@ function usePlayerEngine() {
     mute,
     muted,
     volume,
-    setVolume,
+    setVolume: setVolumeWithPersistence,
     seek,
     getPosition,
     isReady,

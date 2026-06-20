@@ -25,7 +25,7 @@ export function GlobalAudioPlayerShell({
       >
         {children}
       </div>
-      <LazyPlayer />
+      {showPlayer ? <LazyPlayer /> : null}
     </>
   );
 }
