@@ -70,7 +70,9 @@ function usePlayerEngine() {
   const frameRef = React.useRef<number>(0);
   const loadedSrcRef = React.useRef<string | null>(null);
   const storedVolumeRef = React.useRef(storedVolume);
-  storedVolumeRef.current = storedVolume;
+  React.useEffect(() => {
+    storedVolumeRef.current = storedVolume;
+  }, [storedVolume]);
   const [isShuffle, setIsShuffle] = React.useState(false);
   const [loopPlaylist, setLoopPlaylist] = React.useState(false);
   const [pos, setPos] = React.useState(0);

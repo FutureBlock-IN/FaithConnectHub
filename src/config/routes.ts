@@ -11,6 +11,7 @@ export const publicRoutes = [
   "/signup",
   "/forgot-password",
   "/prayer-requests",
+  "/events",
 ];
 
 /**
@@ -30,7 +31,6 @@ export const protectedRoutes = [
   "/profile",
   "/favorites",
   "/groups",
-  "/events",
   "/dashboard",
   "/prayer-requests/submit",
 ];

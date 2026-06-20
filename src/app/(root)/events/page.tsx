@@ -1,19 +1,31 @@
-import { RequireAuth } from "@/components/auth/require-auth";
+import { EventsListClient } from "@/components/events/events-list-client";
+import { getPublishedEventsGroupedCached } from "@/lib/cached-event-data";
+import { siteConfig } from "@/config/site";
+
+export const revalidate = 60;
 
 export const metadata = {
   title: "Events",
-  description: "Upcoming worship events",
+  description: `Browse upcoming and past ministry events on ${siteConfig.name}.`,
 };
 
-export default function EventsPage() {
+export default async function EventsPage() {
+  const { upcoming, past } = await getPublishedEventsGroupedCached();
+
   return (
-    <RequireAuth>
-      <div className="container py-8">
-        <h1 className="font-heading text-3xl font-bold">Events</h1>
-        <p className="mt-2 text-muted-foreground">
-          Browse and manage worship events.
+    <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8">
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
+          Ministry
+        </p>
+        <h1 className="font-heading text-2xl font-bold sm:text-3xl">Events</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Discover upcoming worship services, fellowship gatherings, and special
+          ministry events.
         </p>
       </div>
-    </RequireAuth>
+
+      <EventsListClient initialUpcoming={upcoming} initialPast={past} />
+    </div>
   );
 }

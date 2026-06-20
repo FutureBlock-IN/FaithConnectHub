@@ -22,7 +22,6 @@ const PROTECTED_PREFIXES = [
   "/profile",
   "/favorites",
   "/groups",
-  "/events",
   "/dashboard",
 ];
 

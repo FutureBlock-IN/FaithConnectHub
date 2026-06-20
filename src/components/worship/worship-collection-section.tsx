@@ -83,8 +83,8 @@ export function WorshipCollectionSection({
         <TabsContent value="songs" className="mt-5 focus-visible:outline-none">
           {activeTab === "songs" ? (
             <div className="space-y-6">
-              {songsTabExtra}
               <SongsTabContent initialSongs={songs} />
+              {songsTabExtra}
             </div>
           ) : null}
         </TabsContent>

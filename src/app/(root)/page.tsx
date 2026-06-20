@@ -1,7 +1,9 @@
 import { HomeAdminFab } from "@/components/home-admin-fab";
+import { UpcomingEventsSectionClient } from "@/components/events/upcoming-events-section-client";
 import { PrayerWallSectionClient } from "@/components/prayer/prayer-wall-section-client";
 import { WorshipCollectionSection } from "@/components/worship/worship-collection-section";
 import { siteConfig } from "@/config/site";
+import { getUpcomingEventsCached } from "@/lib/cached-event-data";
 import { getLatestApprovedPrayerRequestsCached } from "@/lib/cached-prayer-data";
 import { getWorshipCatalogCached } from "@/lib/cached-worship-data";
 
@@ -25,10 +27,12 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [{ songs, sermons, articles }, latestPrayerRequests] = await Promise.all([
-    getWorshipCatalogCached(),
-    getLatestApprovedPrayerRequestsCached(3),
-  ]);
+  const [{ songs, sermons, articles }, latestPrayerRequests, upcomingEvents] =
+    await Promise.all([
+      getWorshipCatalogCached(),
+      getLatestApprovedPrayerRequestsCached(3),
+      getUpcomingEventsCached(),
+    ]);
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -44,6 +48,7 @@ export default async function HomePage() {
           />
         }
       />
+      <UpcomingEventsSectionClient initialEvents={upcomingEvents} limit={3} />
     </div>
   );
 }

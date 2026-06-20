@@ -53,6 +53,12 @@ export function useIsPlayerInit() {
   return useAtom(isPlayingAtom, { store });
 }
 
+const playerVolumeAtom = atomWithStorage<number>("player_volume", 1);
+
+export function usePlayerVolume() {
+  return useAtom(playerVolumeAtom, { store });
+}
+
 const isTyping = atom(false);
 
 export function useIsTyping() {

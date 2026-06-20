@@ -4,10 +4,20 @@ export const PRAYER_TITLE_MAX = 100;
 export const PRAYER_REQUEST_MAX = 1000;
 export const PRAYER_NAME_MAX = 80;
 
+function stripControlCharacters(value: string): string {
+  let result = "";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    const isAllowedWhitespace = code === 9 || code === 10 || code === 13;
+    if (isAllowedWhitespace || (code >= 32 && code !== 127)) {
+      result += char;
+    }
+  }
+  return result;
+}
+
 export function sanitizePrayerText(value: string, maxLength: number): string {
-  return value
-    .replace(/<[^>]*>/g, "")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+  return stripControlCharacters(value.replace(/<[^>]*>/g, ""))
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);
