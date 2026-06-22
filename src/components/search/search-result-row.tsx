@@ -7,11 +7,14 @@ import { ImageWithFallback } from "@/components/image-with-fallback";
 import { DEFAULT_SONG_COVER } from "@/config/site";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 
+import { HighlightedText } from "./search-highlight";
+
 type SearchResultRowProps = {
   href: string;
   title: string;
   subtitle?: string;
   coverUrl?: string;
+  highlightQuery?: string;
 };
 
 export function SearchResultRow({
@@ -19,6 +22,7 @@ export function SearchResultRow({
   title,
   subtitle,
   coverUrl,
+  highlightQuery,
 }: SearchResultRowProps) {
   const imageUrl = getSongCoverUrl(coverUrl);
 
@@ -44,11 +48,19 @@ export function SearchResultRow({
 
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <h3 className="line-clamp-2 text-sm font-bold leading-tight text-foreground transition-colors duration-200 group-hover:text-primary">
-          {title}
+          {highlightQuery ? (
+            <HighlightedText text={title} query={highlightQuery} />
+          ) : (
+            title
+          )}
         </h3>
         {subtitle ? (
           <p className="line-clamp-1 text-xs leading-tight text-muted-foreground">
-            {subtitle}
+            {highlightQuery ? (
+              <HighlightedText text={subtitle} query={highlightQuery} />
+            ) : (
+              subtitle
+            )}
           </p>
         ) : null}
       </div>

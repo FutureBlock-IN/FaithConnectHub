@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, onSnapshot, orderBy } from "firebase/firestore";
 
 import type { FirebaseSong } from "@/types/firebase-song";
 
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { AddMusicModal } from "@/components/admin/add-music-modal";
 import { MusicList } from "@/components/admin/music-list";
 import { useAdminChurchId } from "@/hooks/use-admin-church-id";
+import { buildClientScopedQuery } from "@/lib/church-query-builder";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 
@@ -21,15 +23,15 @@ export default function AdminPage() {
   const [selectedSong, setSelectedSong] = useState<FirebaseSong | null>(null);
 
   useEffect(() => {
-    if (!adminChurchId) {
+    if (MULTI_CHURCH_ENABLED && !adminChurchId) {
       setSongs([]);
       setLoading(false);
       return;
     }
 
-    const songsQuery = query(
+    const songsQuery = buildClientScopedQuery(
       collection(db, "songs"),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("createdAt", "desc")
     );
 

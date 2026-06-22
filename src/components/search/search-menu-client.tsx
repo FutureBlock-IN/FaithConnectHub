@@ -8,16 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useEffectiveWorshipCollectionTab } from "@/hooks/use-effective-worship-collection-tab";
 import { useEventListener } from "@/hooks/use-event-listner";
 import { useIsTyping } from "@/hooks/use-store";
-import { getSearchPlaceholder } from "@/lib/worship-collection";
+import { getGlobalSearchPlaceholder } from "@/lib/worship-collection";
 import { cn, isMacOs } from "@/lib/utils";
 
 import type { WorshipCatalog } from "@/lib/cached-worship-data";
 import { WorshipCatalogProvider } from "@/context/worship-catalog-context";
 
-import { FirebaseWorshipSearch } from "./firebase-worship-search";
+import { GlobalSearchResults } from "./global-search-results";
 import { WorshipTopItemsClient } from "./firebase-worship-top-items";
 
 const TOP_ITEMS_LIMIT = 12;
@@ -80,9 +79,8 @@ export function SearchMenuClient({
   const debouncedQuery = useDebounce(query.trim(), 500);
 
   const [_, setIsTyping] = useIsTyping();
-  const { activeTab } = useEffectiveWorshipCollectionTab();
 
-  const searchPlaceholder = placeholder ?? getSearchPlaceholder(activeTab);
+  const searchPlaceholder = placeholder ?? getGlobalSearchPlaceholder();
   const shortcutKey = mounted && isMacOs() ? "⌘" : "Ctrl";
 
   useEffect(() => {
@@ -141,9 +139,15 @@ export function SearchMenuClient({
 
       {mounted ?
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl shadow-md sm:w-full">
-            <div className="relative mr-4 mt-4">
-              <Search className="absolute left-2 top-3 size-4 text-muted-foreground" />
+          <DialogContent
+            className={cn(
+              "flex max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden p-0 shadow-md",
+              "fixed inset-0 left-0 top-0 translate-x-0 translate-y-0 rounded-none border-0",
+              "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[85vh] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border sm:p-6",
+            )}
+          >
+            <div className="relative shrink-0 border-b border-border/40 px-4 pb-3 pt-4 sm:mr-4 sm:mt-4 sm:border-0 sm:p-0">
+              <Search className="absolute left-6 top-7 size-4 text-muted-foreground sm:left-2 sm:top-3" />
 
               <Input
                 value={query}
@@ -154,16 +158,18 @@ export function SearchMenuClient({
               />
             </div>
 
-            <WorshipCatalogProvider catalog={catalog}>
-              {debouncedQuery.length ?
-                <FirebaseWorshipSearch query={debouncedQuery} />
-              : <WorshipTopItemsClient
-                  songs={catalog.songs.slice(0, TOP_ITEMS_LIMIT)}
-                  sermons={catalog.sermons.slice(0, TOP_ITEMS_LIMIT)}
-                  articles={catalog.articles.slice(0, TOP_ITEMS_LIMIT)}
-                />
-              }
-            </WorshipCatalogProvider>
+            <div className="min-h-0 flex-1 overflow-hidden px-4 sm:px-0">
+              <WorshipCatalogProvider catalog={catalog}>
+                {debouncedQuery.length ?
+                  <GlobalSearchResults query={debouncedQuery} />
+                : <WorshipTopItemsClient
+                    songs={catalog.songs.slice(0, TOP_ITEMS_LIMIT)}
+                    sermons={catalog.sermons.slice(0, TOP_ITEMS_LIMIT)}
+                    articles={catalog.articles.slice(0, TOP_ITEMS_LIMIT)}
+                  />
+                }
+              </WorshipCatalogProvider>
+            </div>
           </DialogContent>
         </Dialog>
       : null}

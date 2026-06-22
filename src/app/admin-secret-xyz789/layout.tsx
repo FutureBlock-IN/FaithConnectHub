@@ -3,12 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+import { buildNoIndexMetadata } from "@/lib/seo";
 import { siteConfig } from "@/config/site";
 
-export const metadata = {
-  title: "Admin Panel",
-  description: `Manage content for ${siteConfig.name}.`,
-};
+export const metadata = buildNoIndexMetadata(
+  "Admin Panel",
+  "FaithConnectHub legacy admin content management panel."
+);
 
 export default async function AdminLayout({
   children,
@@ -44,7 +45,7 @@ export default async function AdminLayout({
           <div className="w-12" />
         </div>
       </header>
-      {children}
+      <main id="admin-content">{children}</main>
     </div>
   );
 }

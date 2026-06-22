@@ -22,6 +22,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import { useActiveChurchScope } from "@/context/active-church-context";
+import { getLegacyDefaultChurchId } from "@/lib/church-scope";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { createPrayerRequest } from "@/lib/prayer-request-mutations";
 import {
   PRAYER_REQUEST_MAX,
@@ -85,7 +87,8 @@ export function PrayerRequestForm({
       return;
     }
 
-    if (!churchId) {
+    const effectiveChurchId = churchId || getLegacyDefaultChurchId();
+    if (MULTI_CHURCH_ENABLED && !effectiveChurchId) {
       setSubmitError("No church is configured yet. Please try again later.");
       return;
     }
@@ -97,10 +100,15 @@ export function PrayerRequestForm({
         ? ""
         : values.name.trim() || getDefaultName(profile, authUser);
 
-      await createPrayerRequest(churchId, {
-        ...values,
-        name: resolvedName,
-      });
+      await createPrayerRequest(
+        effectiveChurchId,
+        authUser.uid,
+        {
+          ...values,
+          name: resolvedName,
+        },
+        { email: authUser.email }
+      );
       setSubmitted(true);
     } catch {
       setSubmitError("Unable to submit your prayer request. Please try again.");

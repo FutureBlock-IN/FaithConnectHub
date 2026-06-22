@@ -1,37 +1,74 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { EventDetailClient } from "@/components/events/event-detail-client";
-import { siteConfig } from "@/config/site";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getEventByIdCached } from "@/lib/cached-event-data";
+import {
+  buildBreadcrumbJsonLd,
+  buildEventJsonLd,
+  buildPageMetadata,
+} from "@/lib/seo";
+
+export const revalidate = 60;
 
 type EventDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export async function generateMetadata({ params }: EventDetailPageProps) {
+export async function generateMetadata({ params }: EventDetailPageProps): Promise<Metadata> {
   const { id } = await params;
+  const decodedId = decodeURIComponent(id);
   const { churchId } = await getPageChurchContext();
-  const event = await getEventByIdCached(churchId, decodeURIComponent(id));
+  const event = await getEventByIdCached(churchId, decodedId);
 
   if (!event || event.status !== "published") {
-    return { title: "Event" };
+    return { title: "Event Not Found" };
   }
 
-  return {
-    title: `${event.title} | ${siteConfig.name}`,
+  return buildPageMetadata({
+    title: event.title,
     description: event.description.slice(0, 160),
-  };
+    path: `/events/${encodeURIComponent(decodedId)}`,
+    type: "website",
+    keywords: [event.title, "Christian event", "ministry event", event.location ?? ""].filter(
+      Boolean
+    ),
+  });
 }
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
   const { id } = await params;
+  const decodedId = decodeURIComponent(id);
   const { churchId } = await getPageChurchContext();
-  const event = await getEventByIdCached(churchId, decodeURIComponent(id));
+  const event = await getEventByIdCached(churchId, decodedId);
 
   if (!event || event.status !== "published") {
     notFound();
   }
 
-  return <EventDetailClient eventId={event.id} initialEvent={event} />;
+  const path = `/events/${encodeURIComponent(event.id)}`;
+
+  return (
+    <article aria-label={event.title}>
+      <JsonLd
+        data={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Events", path: "/events" },
+            { name: event.title, path },
+          ]),
+          buildEventJsonLd({
+            title: event.title,
+            description: event.description,
+            path,
+            startDate: new Date(`${event.eventDate}T${event.eventTime || "00:00"}`).toISOString(),
+            location: event.location,
+          }),
+        ]}
+      />
+      <EventDetailClient eventId={event.id} initialEvent={event} />
+    </article>
+  );
 }

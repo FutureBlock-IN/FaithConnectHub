@@ -9,6 +9,7 @@ import {
   readActiveChurchIdFromCookieValue,
 } from "@/lib/church-cookies";
 import { getLegacyDefaultChurchId } from "@/lib/church-scope";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 
 type ActiveChurchContextValue = {
   churches: FirebaseChurch[];
@@ -49,6 +50,8 @@ export function ActiveChurchProvider({
     }
   );
   const [isLoading, setIsLoading] = React.useState(() => {
+    if (!MULTI_CHURCH_ENABLED) return false;
+
     const cookieId = readActiveChurchIdFromCookieValue(initialActiveChurchId);
     if (cookieId) return false;
     if (initialChurches.some((church) => church.isActive)) return false;
@@ -88,10 +91,17 @@ export function ActiveChurchProvider({
   }, []);
 
   React.useEffect(() => {
+    if (!MULTI_CHURCH_ENABLED) {
+      setIsLoading(false);
+      return;
+    }
+
     void refreshChurches();
   }, [refreshChurches]);
 
   React.useEffect(() => {
+    if (!MULTI_CHURCH_ENABLED) return;
+
     if (activeChurchId) return;
 
     const legacyId = getLegacyDefaultChurchId();
@@ -147,13 +157,16 @@ export function useActiveChurchScope(): {
   const { activeChurchId, isLoading } = useActiveChurch();
   const legacyId = getLegacyDefaultChurchId();
 
-  return React.useMemo(
-    () => ({
+  return React.useMemo(() => {
+    if (!MULTI_CHURCH_ENABLED) {
+      return { churchId: "", isLoading: false };
+    }
+
+    return {
       churchId: activeChurchId || legacyId || "",
       isLoading: isLoading && !(activeChurchId || legacyId),
-    }),
-    [activeChurchId, isLoading, legacyId]
-  );
+    };
+  }, [activeChurchId, isLoading, legacyId]);
 }
 
 export function useRequiredActiveChurchId(): string {

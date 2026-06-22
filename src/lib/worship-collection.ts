@@ -9,6 +9,9 @@ export function getContentTypeFromPathname(
   return null;
 }
 
+export const GLOBAL_SEARCH_PLACEHOLDER =
+  "Search songs, sermons, articles, events...";
+
 export function getSearchPlaceholder(tab: WorshipCollectionTab): string {
   switch (tab) {
     case "songs":
@@ -18,6 +21,10 @@ export function getSearchPlaceholder(tab: WorshipCollectionTab): string {
     case "articles":
       return "Search articles...";
   }
+}
+
+export function getGlobalSearchPlaceholder(): string {
+  return GLOBAL_SEARCH_PLACEHOLDER;
 }
 
 export function getContentTypeLabel(tab: WorshipCollectionTab): string {

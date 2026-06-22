@@ -214,6 +214,30 @@ export async function getPublishedEventsGrouped(churchId: string) {
   return splitEventsBySchedule(published);
 }
 
+export async function searchEvents(
+  churchId: string,
+  searchQuery: string
+): Promise<FirebaseEvent[]> {
+  const normalized = searchQuery.trim().toLowerCase();
+  if (!normalized) return [];
+
+  const events = await getPublishedEvents(churchId);
+  return events.filter((event) => {
+    const haystack = [
+      event.title,
+      event.description,
+      event.eventType,
+      event.speakerName,
+      event.location,
+      event.eventDate,
+      event.eventTime,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalized);
+  });
+}
+
 export async function getEventById(
   eventId: string
 ): Promise<FirebaseEvent | null> {

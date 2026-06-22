@@ -49,6 +49,7 @@ service cloud.firestore {
     function isValidPrayerRequestCreate() {
       return request.resource.data.keys().hasAll([
         "churchId",
+        "userId",
         "name",
         "title",
         "request",
@@ -59,6 +60,7 @@ service cloud.firestore {
         "updatedAt"
       ])
         && hasValidChurchId()
+        && request.resource.data.userId == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.title is string
         && request.resource.data.request is string
@@ -142,14 +144,45 @@ service cloud.firestore {
     }
 
     match /donations/{donationId} {
-      allow read: if isPlatformSuperAdmin() || isChurchAdminFor(resource.data.churchId);
+      allow read: if isPlatformSuperAdmin()
+        || isChurchAdminFor(resource.data.churchId)
+        || (isSignedIn()
+          && request.auth.token.email != null
+          && resource.data.donorEmail == request.auth.token.email);
       allow create, update, delete: if false;
+    }
+
+    match /recentlyViewed/{recentlyViewedId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid
+        || isPlatformSuperAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.itemId is string
+        && request.resource.data.itemId.size() > 0
+        && request.resource.data.itemType in ["song", "sermon", "article"]
+        && request.resource.data.keys().hasAll([
+          "userId",
+          "itemId",
+          "itemType",
+          "viewedAt"
+        ]);
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.itemId == resource.data.itemId
+        && request.resource.data.itemType == resource.data.itemType
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["viewedAt"]);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /prayerRequests/{requestId} {
       allow read: if resource.data.status == "approved"
         || isPlatformSuperAdmin()
-        || isChurchAdminFor(resource.data.churchId);
+        || isChurchAdminFor(resource.data.churchId)
+        || (isSignedIn() && resource.data.userId == request.auth.uid)
+        || (isSignedIn()
+          && request.auth.token.email != null
+          && resource.data.email == request.auth.token.email);
       allow create: if isSignedIn() && isValidPrayerRequestCreate();
       allow update: if isPlatformSuperAdmin()
         || isChurchAdminFor(resource.data.churchId)
@@ -165,7 +198,8 @@ service cloud.firestore {
     }
 
     match /favorites/{favoriteId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid
+        || isPlatformSuperAdmin();
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.itemId is string
@@ -186,7 +220,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId
+        || isPlatformSuperAdmin()
+        || (userDocExists()
+          && resource.data.churchId is string
+          && isChurchAdminFor(resource.data.churchId));
       allow create: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.role == "user";

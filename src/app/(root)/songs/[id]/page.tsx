@@ -1,17 +1,26 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-export const revalidate = 60;
-
 import { ContentAuthRequired } from "@/components/auth/content-auth-required";
 import { SongDetailClient } from "@/components/music/song-detail-client";
-import { siteConfig } from "@/config/site";
+import { JsonLd } from "@/components/seo/json-ld";
+import { DEFAULT_SONG_COVER } from "@/config/site";
 import { isAuthenticatedServer } from "@/lib/auth-server";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getSongByIdCached } from "@/lib/cached-worship-data";
-import { isSongPublished, getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
+import {
+  buildBreadcrumbJsonLd,
+  buildMusicRecordingJsonLd,
+  buildPageMetadata,
+} from "@/lib/seo";
+import {
+  getSongAlternateTitle,
+  getSongDisplayTitle,
+  isSongPublished,
+} from "@/lib/song-firestore";
 import { getSongCoverUrl } from "@/lib/utils";
-import { DEFAULT_SONG_COVER } from "@/config/site";
+
+export const revalidate = 60;
 
 type SongDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -25,46 +34,34 @@ export async function generateMetadata({
   const song = await getSongByIdCached(churchId, id);
 
   if (!song) {
-    return { title: siteConfig.name };
+    return { title: "Song Not Found" };
   }
 
   const displayTitle = getSongDisplayTitle(song);
   const alternateTitle = getSongAlternateTitle(song) ?? "";
-  const coverUrl     = getSongCoverUrl(song.imageUrl) || `${siteConfig.url}${DEFAULT_SONG_COVER}`;
+  const coverUrl = getSongCoverUrl(song.imageUrl) || DEFAULT_SONG_COVER;
+  const description =
+    alternateTitle && alternateTitle !== displayTitle ?
+      `${alternateTitle} — Christian worship song with lyrics on FaithConnectHub.`
+    : `${displayTitle} — Christian worship song with lyrics on FaithConnectHub.`;
 
-  // Absolute URL — required for WhatsApp preview to work
-  const songUrl     = `${siteConfig.url}/songs/${encodeURIComponent(id)}`;
-  const description = alternateTitle && alternateTitle !== displayTitle
-    ? `${alternateTitle} • ${siteConfig.name}`
-    : `${displayTitle} • ${siteConfig.name}`;
-
-  return {
+  return buildPageMetadata({
     title: displayTitle,
     description,
-
-    openGraph: {
-      title: displayTitle,
-      description,
-      url: songUrl,                      // ✅ absolute URL
-      siteName: siteConfig.name,
-      type: "music.song",
-      images: [
-        {
-          url: coverUrl,                 // ✅ must be absolute URL
-          width: 800,
-          height: 800,
-          alt: displayTitle,
-        },
-      ],
-    },
-
-    twitter: {
-      card: "summary_large_image",       // ✅ shows big image in Telegram too
-      title: displayTitle,
-      description,
-      images: [coverUrl],
-    },
-  };
+    path: `/songs/${encodeURIComponent(id)}`,
+    image: coverUrl,
+    imageAlt: displayTitle,
+    imageWidth: 800,
+    imageHeight: 800,
+    type: "music.song",
+    keywords: [
+      displayTitle,
+      "worship song",
+      "Christian lyrics",
+      song.category,
+      ...(song.tags ?? []),
+    ],
+  });
 }
 
 export default async function SongDetailPage({ params }: SongDetailPageProps) {
@@ -83,5 +80,29 @@ export default async function SongDetailPage({ params }: SongDetailPageProps) {
     notFound();
   }
 
-  return <SongDetailClient song={song} />;
+  const displayTitle = getSongDisplayTitle(song);
+  const coverUrl = getSongCoverUrl(song.imageUrl) || DEFAULT_SONG_COVER;
+  const path = `/songs/${encodeURIComponent(id)}`;
+
+  return (
+    <article aria-label={displayTitle}>
+      <JsonLd
+        data={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Songs", path: "/songs" },
+            { name: displayTitle, path },
+          ]),
+          buildMusicRecordingJsonLd({
+            title: displayTitle,
+            description: `${displayTitle} — worship song on FaithConnectHub`,
+            path,
+            image: coverUrl,
+            artist: song.artist,
+          }),
+        ]}
+      />
+      <SongDetailClient song={song} />
+    </article>
+  );
 }

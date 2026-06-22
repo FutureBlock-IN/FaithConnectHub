@@ -3,6 +3,7 @@
 import { Building2, Check, ChevronsUpDown } from "lucide-react";
 
 import { useActiveChurch } from "@/context/active-church-context";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,8 @@ type ChurchSelectorProps = {
 export function ChurchSelector({ className, compact = false }: ChurchSelectorProps) {
   const { churches, activeChurch, activeChurchId, setActiveChurchId } =
     useActiveChurch();
+
+  if (!MULTI_CHURCH_ENABLED) return null;
 
   const activeChurches = churches.filter((church) => church.isActive);
 

@@ -13,6 +13,8 @@ import {
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 
 import { useActiveChurchScope } from "@/context/active-church-context";
+import { buildClientScopedQuery } from "@/lib/church-query-builder";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { db } from "@/lib/firebase";
 import {
   normalizePrayerRequestFromFirestore,
@@ -28,13 +30,13 @@ export function useApprovedPrayerRequests(
   const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
-    if (!churchId) return;
+    if (MULTI_CHURCH_ENABLED && !churchId) return;
 
     setSyncing(true);
 
-    const baseQuery = query(
+    const baseQuery = buildClientScopedQuery(
       collection(db, PRAYER_REQUESTS_COLLECTION),
-      where("churchId", "==", churchId),
+      churchId,
       where("status", "==", "approved"),
       orderBy("createdAt", "desc")
     );

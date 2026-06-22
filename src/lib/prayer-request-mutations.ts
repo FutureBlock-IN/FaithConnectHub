@@ -27,12 +27,16 @@ import {
  */
 export async function createPrayerRequest(
   churchId: string,
-  values: PrayerRequestSubmitValues
+  userId: string,
+  values: PrayerRequestSubmitValues,
+  options?: { email?: string | null }
 ): Promise<string> {
   const sanitized = sanitizePrayerRequestInput(values);
   const payload = buildPrayerRequestCreatePayload({
     ...sanitized,
     churchId,
+    userId,
+    email: sanitized.email ?? options?.email?.trim() ?? undefined,
   });
   const now = Timestamp.now();
 
