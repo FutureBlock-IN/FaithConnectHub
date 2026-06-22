@@ -3,7 +3,8 @@ export const DEFAULT_SONG_COVER = "/images/default-cover.png";
 export const siteConfig = {
   name: "FaithConnectHub",
   url: "https://faithconnecthub.com/",
-  description: "Christian worship music, sermons, and articles for faith and praise.",
+  description:
+    "FaithConnectHub is a Christian worship and ministry platform for songs, sermons, articles, prayer requests, events, and donations.",
   image: "/images/logo.png",
   icon: "/icon.png",
   appleIcon: "/apple-icon.png",

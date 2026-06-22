@@ -68,7 +68,7 @@ export async function Navbar() {
         <div className="border-t border-border/40 px-3 pb-2.5 pt-2">
           <NavbarSearchSection
             className="h-11 w-full"
-            placeholder="Search songs, sermons, articles..."
+            placeholder="Search songs, sermons, articles, events..."
             enableShortcut={false}
           />
         </div>

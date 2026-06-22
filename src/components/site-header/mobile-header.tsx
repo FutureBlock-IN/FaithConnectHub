@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,6 +9,7 @@ import {
   Cog,
   HeartHandshake,
   Home,
+  LayoutDashboard,
   LogOut,
   Menu,
   Mic2,
@@ -33,10 +34,10 @@ import {
   SheetClose,
   SheetContent,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useMounted } from "@/hooks/use-mounted";
 import type { AuthUser } from "@/context/firebase-auth-context";
 import type { FirestoreUser } from "@/lib/firebase-auth-service";
 import { siteConfig } from "@/config/site";
@@ -156,13 +157,9 @@ export function MobileHeader() {
   const router = useRouter();
   const { authUser, profile, isAdmin, loading, signOut } = useFirebaseAuth();
   const { theme, setTheme } = useTheme();
+  const mounted = useMounted();
 
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   async function handleSignOut() {
     setOpen(false);
@@ -179,67 +176,71 @@ export function MobileHeader() {
   const displayName = authUser ? getDisplayName(authUser, profile) : "";
   const initials = authUser ? getInitials(authUser, profile) : "U";
 
+  const headerShell = (
+    <div className="relative flex h-14 items-center justify-between px-1.5">
+      <div className="flex w-24 justify-start">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Open menu"
+          className="size-11 text-muted-foreground hover:text-foreground"
+          disabled={!mounted}
+          onClick={mounted ? () => setOpen(true) : undefined}
+        >
+          <Menu className="size-5" aria-hidden />
+        </Button>
+      </div>
+
+      <Link
+        href="/"
+        aria-label={`${siteConfig.name} home`}
+        className="absolute left-1/2 -translate-x-1/2 font-heading text-base font-bold tracking-tight text-foreground"
+      >
+        {siteConfig.name}
+      </Link>
+
+      <div className="flex w-24 items-center justify-end gap-0.5">
+        {!mounted || loading ?
+          <div className="size-9 animate-pulse rounded-full bg-muted" />
+        : authUser ?
+          <>
+            <NotificationBell userId={authUser.uid} />
+            <button
+              type="button"
+              aria-label="Open menu"
+              onClick={() => setOpen(true)}
+              className="flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Avatar className="size-8 border shadow-sm">
+                {authUser.photoURL ?
+                  <AvatarImage
+                    src={authUser.photoURL}
+                    alt={displayName}
+                    referrerPolicy="no-referrer"
+                  />
+                : null}
+                <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          </>
+        : <Button asChild size="sm" variant="outline" className="h-9">
+            <Link href="/signin">Sign In</Link>
+          </Button>
+        }
+      </div>
+    </div>
+  );
+
+  if (!mounted) {
+    return headerShell;
+  }
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <div className="relative flex h-14 items-center justify-between px-1.5">
-        {/* Left — hamburger */}
-        <div className="flex w-24 justify-start">
-          <SheetTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Open menu"
-              className="size-11 text-muted-foreground hover:text-foreground"
-            >
-              <Menu className="size-5" aria-hidden />
-            </Button>
-          </SheetTrigger>
-        </div>
-
-        {/* Center — brand text */}
-        <Link
-          href="/"
-          aria-label={`${siteConfig.name} home`}
-          className="absolute left-1/2 -translate-x-1/2 font-heading text-base font-bold tracking-tight text-foreground"
-        >
-          {siteConfig.name}
-        </Link>
-
-        {/* Right — notifications + avatar (or sign in) */}
-        <div className="flex w-24 items-center justify-end gap-0.5">
-          {!mounted || loading ? (
-            <div className="size-9 animate-pulse rounded-full bg-muted" />
-          ) : authUser ? (
-            <>
-              <NotificationBell userId={authUser.uid} />
-              <button
-                type="button"
-                aria-label="Open menu"
-                onClick={() => setOpen(true)}
-                className="flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <Avatar className="size-8 border shadow-sm">
-                  {authUser.photoURL ? (
-                    <AvatarImage
-                      src={authUser.photoURL}
-                      alt={displayName}
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : null}
-                  <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </button>
-            </>
-          ) : (
-            <Button asChild size="sm" variant="outline" className="h-9">
-              <Link href="/signin">Sign In</Link>
-            </Button>
-          )}
-        </div>
-      </div>
+      {headerShell}
 
       <SheetContent
         side="left"
@@ -304,7 +305,16 @@ export function MobileHeader() {
                 href="/profile"
                 label="Profile"
                 icon={User2}
-                active={pathname.startsWith("/profile")}
+                active={
+                  pathname.startsWith("/profile") &&
+                  !pathname.startsWith("/profile/dashboard")
+                }
+              />
+              <NavRow
+                href="/profile/dashboard"
+                label="My Dashboard"
+                icon={LayoutDashboard}
+                active={pathname.startsWith("/profile/dashboard")}
               />
               <NavRow
                 href="/favorites"

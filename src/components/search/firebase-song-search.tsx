@@ -8,6 +8,7 @@ import type { FirebaseSong } from "@/types/firebase-song";
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { useActiveChurchScope } from "@/context/active-church-context";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { searchSongs } from "@/lib/firebase-queries";
 import { getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 import { DEFAULT_SONG_COVER } from "@/config/site";
@@ -30,7 +31,7 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
         return;
       }
 
-      if (!churchId) {
+      if (MULTI_CHURCH_ENABLED && !churchId) {
         setSongs([]);
         setLoading(churchResolving);
         return;

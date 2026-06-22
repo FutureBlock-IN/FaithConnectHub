@@ -29,9 +29,12 @@ export function normalizePrayerRequestFromFirestore(
 ): FirebasePrayerRequest {
   const email = String(data.email ?? "").trim();
 
+  const userId = String(data.userId ?? "").trim();
+
   return {
     id,
     churchId: resolveDocumentChurchId(data),
+    userId: userId || undefined,
     name: String(data.name ?? "").trim() || "Anonymous",
     email: email || undefined,
     title: String(data.title ?? "").trim(),
@@ -83,6 +86,7 @@ export function buildPrayerRequestCreatePayload(
 
   return {
     churchId: input.churchId.trim(),
+    userId: input.userId.trim(),
     name: displayName,
     email: input.email?.trim() || null,
     title: input.title,

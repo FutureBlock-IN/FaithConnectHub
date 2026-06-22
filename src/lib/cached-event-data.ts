@@ -6,6 +6,7 @@ import {
   getPublishedEventsGrouped,
   getUpcomingPublishedEvents,
 } from "./firebase-event-queries";
+import { recordMatchesChurchScope } from "./church-scope";
 
 const REVALIDATE_SECONDS = 60;
 
@@ -30,7 +31,7 @@ export const getEventByIdCached = cache(
     return unstable_cache(
       async () => {
         const event = await getEventById(eventId);
-        if (!event || event.churchId !== churchId) return null;
+        if (!recordMatchesChurchScope(event, churchId)) return null;
         return event;
       },
       ["event-by-id", churchId, eventId],

@@ -2,13 +2,16 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
+import type { FirebaseEvent } from "@/types/firebase-event";
 import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { getArticleById, getPublishedArticles } from "./firebase-article-queries";
+import { getPublishedEvents } from "./firebase-event-queries";
 import { getSermonById, getPublishedSermons } from "./firebase-sermon-queries";
 import { getPublishedSongs, getSongById } from "./firebase-queries";
 import { toArticleListItem } from "./article-firestore";
+import { recordMatchesChurchScope } from "./church-scope";
 import { toSermonListItem } from "./sermon-firestore";
 import { toSongListItem } from "./song-firestore";
 
@@ -47,11 +50,21 @@ export const getPublishedArticlesCached = cache(async (churchId: string) => {
   )();
 });
 
+export const getPublishedEventsCached = cache(async (churchId: string) => {
+  return unstable_cache(
+    async (): Promise<FirebaseEvent[]> => {
+      return getPublishedEvents(churchId);
+    },
+    ["worship-published-events", churchId],
+    { revalidate: REVALIDATE_SECONDS, tags: ["events", `church-${churchId}`] }
+  )();
+});
+
 export const getSongByIdCached = cache(async (churchId: string, songId: string) => {
   return unstable_cache(
     async () => {
       const song = await getSongById(songId);
-      if (!song || song.churchId !== churchId) return null;
+      if (!recordMatchesChurchScope(song, churchId)) return null;
       return song;
     },
     ["worship-song-by-id", churchId, songId],
@@ -64,7 +77,7 @@ export const getSermonByIdCached = cache(
     return unstable_cache(
       async () => {
         const sermon = await getSermonById(sermonId);
-        if (!sermon || sermon.churchId !== churchId) return null;
+        if (!recordMatchesChurchScope(sermon, churchId)) return null;
         return sermon;
       },
       ["worship-sermon-by-id", churchId, sermonId],
@@ -81,7 +94,7 @@ export const getArticleByIdCached = cache(
     return unstable_cache(
       async () => {
         const article = await getArticleById(articleId);
-        if (!article || article.churchId !== churchId) return null;
+        if (!recordMatchesChurchScope(article, churchId)) return null;
         return article;
       },
       ["worship-article-by-id", churchId, articleId],
@@ -97,15 +110,17 @@ export type WorshipCatalog = {
   songs: FirebaseSong[];
   sermons: FirebaseSermon[];
   articles: FirebaseArticle[];
+  events: FirebaseEvent[];
 };
 
 export const getWorshipCatalogCached = cache(
   async (churchId: string): Promise<WorshipCatalog> => {
-    const [songs, sermons, articles] = await Promise.all([
+    const [songs, sermons, articles, events] = await Promise.all([
       getPublishedSongsCached(churchId),
       getPublishedSermonsCached(churchId),
       getPublishedArticlesCached(churchId),
+      getPublishedEventsCached(churchId),
     ]);
-    return { songs, sermons, articles };
+    return { songs, sermons, articles, events };
   }
 );

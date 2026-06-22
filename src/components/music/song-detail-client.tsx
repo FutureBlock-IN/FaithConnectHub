@@ -20,6 +20,7 @@ import { ImageWithFallback } from "@/components/image-with-fallback";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlaySong } from "@/hooks/use-play-song";
+import { useRecordRecentlyViewed } from "@/hooks/use-record-recently-viewed";
 import {
   useCurrentSongIndex,
   useQueue,
@@ -61,6 +62,8 @@ function downloadBlob(content: Blob, filename: string) {
 }
 
 export function SongDetailClient({ song }: SongDetailClientProps) {
+  useRecordRecentlyViewed({ itemType: "song", itemId: song.id });
+
   const [queue] = useQueue();
   const [currentIndex] = useCurrentSongIndex();
   const { playSong } = usePlaySong();

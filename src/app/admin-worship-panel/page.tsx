@@ -13,9 +13,11 @@ import {
   HeartHandshake,
   CalendarDays,
   Building2,
+  BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
 import type { FirebaseChurch } from "@/types/firebase-church";
@@ -42,6 +44,8 @@ import {
   normalizeChurchFromFirestore,
 } from "@/lib/church-firestore";
 import { filterRecordsByChurch } from "@/lib/church-scope";
+import { buildClientScopedQuery } from "@/lib/church-query-builder";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { db } from "@/lib/firebase";
 import { useAdminChurchId, useIsPlatformSuperAdmin } from "@/hooks/use-admin-church-id";
@@ -111,8 +115,11 @@ type AdminTab =
   | "prayers";
 
 function parseAdminTab(value: string | null): AdminTab {
+  if (MULTI_CHURCH_ENABLED && value === "churches") {
+    return "churches";
+  }
+
   if (
-    value === "churches" ||
     value === "sermons" ||
     value === "articles" ||
     value === "events" ||
@@ -199,7 +206,7 @@ export default function AdminPage() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!MULTI_CHURCH_ENABLED || !isSuperAdmin) return;
 
     const churchesQuery = query(
       collection(db, CHURCHES_COLLECTION),
@@ -229,15 +236,15 @@ export default function AdminPage() {
   }, [isSuperAdmin]);
 
   useEffect(() => {
-    if (!adminChurchId) {
+    if (MULTI_CHURCH_ENABLED && !adminChurchId) {
       setPrayerRequests([]);
       setPrayersLoading(false);
       return;
     }
 
-    const prayersQuery = query(
+    const prayersQuery = buildClientScopedQuery(
       collection(db, "prayerRequests"),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -262,11 +269,11 @@ export default function AdminPage() {
   }, [adminChurchId]);
 
   useEffect(() => {
-    if (!loadedSongsTab || !adminChurchId) return;
+    if (!loadedSongsTab || (MULTI_CHURCH_ENABLED && !adminChurchId)) return;
 
-    const songsQuery = query(
+    const songsQuery = buildClientScopedQuery(
       collection(db, "songs"),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -293,7 +300,7 @@ export default function AdminPage() {
   const sermonSnapshotsRef = useRef<Record<string, FirebaseSermon[]>>({});
 
   useEffect(() => {
-    if (!loadedSermonsTab || !adminChurchId) return;
+    if (!loadedSermonsTab || (MULTI_CHURCH_ENABLED && !adminChurchId)) return;
 
     const scopedChurchId = adminChurchId;
     sermonSnapshotsRef.current = {};
@@ -308,9 +315,9 @@ export default function AdminPage() {
 
     const unsubscribes = [SERMONS_COLLECTION, LEGACY_SERMONS_COLLECTION].map(
       (collectionName) => {
-        const sermonsQuery = query(
+        const sermonsQuery = buildClientScopedQuery(
           collection(db, collectionName),
-          where("churchId", "==", scopedChurchId),
+          scopedChurchId,
           orderBy("dateCreated", "desc")
         );
 
@@ -349,11 +356,11 @@ export default function AdminPage() {
   }, [loadedSermonsTab, adminChurchId]);
 
   useEffect(() => {
-    if (!loadedArticlesTab || !adminChurchId) return;
+    if (!loadedArticlesTab || (MULTI_CHURCH_ENABLED && !adminChurchId)) return;
 
-    const articlesQuery = query(
+    const articlesQuery = buildClientScopedQuery(
       collection(db, "articles"),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("dateCreated", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -378,11 +385,11 @@ export default function AdminPage() {
   }, [loadedArticlesTab, adminChurchId]);
 
   useEffect(() => {
-    if (!loadedEventsTab || !adminChurchId) return;
+    if (!loadedEventsTab || (MULTI_CHURCH_ENABLED && !adminChurchId)) return;
 
-    const eventsQuery = query(
+    const eventsQuery = buildClientScopedQuery(
       collection(db, EVENTS_COLLECTION),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("eventDate", "desc")
     );
     const unsubscribe = onSnapshot(
@@ -407,16 +414,16 @@ export default function AdminPage() {
   }, [loadedEventsTab, adminChurchId]);
 
   useEffect(() => {
-    if (!loadedDonationsTab || !adminChurchId) return;
+    if (!loadedDonationsTab || (MULTI_CHURCH_ENABLED && !adminChurchId)) return;
 
-    const campaignsQuery = query(
+    const campaignsQuery = buildClientScopedQuery(
       collection(db, DONATION_CAMPAIGNS_COLLECTION),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("createdAt", "desc")
     );
-    const donationsQuery = query(
+    const donationsQuery = buildClientScopedQuery(
       collection(db, DONATIONS_COLLECTION),
-      where("churchId", "==", adminChurchId),
+      adminChurchId,
       orderBy("createdAt", "desc")
     );
 
@@ -570,15 +577,24 @@ export default function AdminPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {isSuperAdmin && activeTab !== "churches" ?
+            {MULTI_CHURCH_ENABLED && isSuperAdmin && activeTab !== "churches" ?
               <ChurchSelector compact />
             : null}
+            <Link
+              href="/admin-worship-panel/analytics"
+              className="inline-flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </Link>
             {activeTab !== "prayers" ?
               <Button
                 size="sm"
                 onClick={getAddHandler}
                 disabled={
-                  activeTab !== "churches" && !adminChurchId
+                  MULTI_CHURCH_ENABLED &&
+                  activeTab !== "churches" &&
+                  !adminChurchId
                 }
                 className="gap-2 rounded-full px-5 font-semibold shadow"
               >
@@ -590,14 +606,14 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {!adminChurchId && activeTab !== "churches" ?
+      {MULTI_CHURCH_ENABLED && !adminChurchId && activeTab !== "churches" ?
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           Select an active church to manage worship content. Super admins can use the
           church selector above.
         </div>
       : null}
 
-      {isSuperAdmin ?
+      {MULTI_CHURCH_ENABLED && isSuperAdmin ?
         <ChurchesDashboardCard
           total={churches.length}
           active={activeChurches}
@@ -622,7 +638,7 @@ export default function AdminPage() {
         className="w-full space-y-6"
       >
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:grid-cols-3 lg:inline-flex lg:w-auto">
-          {isSuperAdmin ?
+          {MULTI_CHURCH_ENABLED && isSuperAdmin ?
             <TabsTrigger value="churches" className="rounded-lg px-4 py-2 text-xs font-semibold sm:text-sm">
               Churches
             </TabsTrigger>
@@ -647,7 +663,7 @@ export default function AdminPage() {
           </TabsTrigger>
         </TabsList>
 
-        {isSuperAdmin ?
+        {MULTI_CHURCH_ENABLED && isSuperAdmin ?
           <TabsContent value="churches" className="mt-0 space-y-4">
             {activeTab === "churches" ?
               <>
@@ -952,7 +968,7 @@ export default function AdminPage() {
         initialCampaign={selectedCampaign}
         churchId={adminChurchId ?? ""}
       />
-      {isSuperAdmin ?
+      {MULTI_CHURCH_ENABLED && isSuperAdmin ?
         <AddChurchModal
           isOpen={churchModalOpen}
           onClose={() => {

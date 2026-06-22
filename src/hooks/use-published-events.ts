@@ -13,6 +13,8 @@ import {
 import type { FirebaseEvent } from "@/types/firebase-event";
 
 import { useActiveChurchScope } from "@/context/active-church-context";
+import { buildClientScopedQuery } from "@/lib/church-query-builder";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { db } from "@/lib/firebase";
 import {
   EVENTS_COLLECTION,
@@ -36,13 +38,13 @@ export function usePublishedEvents(
   const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
-    if (!churchId) return;
+    if (MULTI_CHURCH_ENABLED && !churchId) return;
 
     setSyncing(true);
 
-    const baseQuery = query(
+    const baseQuery = buildClientScopedQuery(
       collection(db, EVENTS_COLLECTION),
-      where("churchId", "==", churchId),
+      churchId,
       where("status", "==", "published"),
       orderBy("eventDate", "asc")
     );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 
+import { useMounted } from "@/hooks/use-mounted";
 import type { SiteNavItem } from "@/config/site-nav";
 import {
   siteMinistryNav,
@@ -65,6 +66,7 @@ const menuContentClassName =
 /** Desktop: plain text links, no button backgrounds */
 export function DesktopPrimaryNav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,42 +113,59 @@ export function DesktopPrimaryNav({ className }: { className?: string }) {
           );
         })}
 
-        {/* Ministry dropdown */}
-        <li key="ministry" onMouseEnter={openNow} onMouseLeave={scheduleClose}>
-          <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
-            <DropdownMenuTrigger
-              onClick={(e) => e.preventDefault()}
+        {/* Ministry dropdown — Radix only after mount to avoid hydration ID mismatch */}
+        <li
+          key="ministry"
+          onMouseEnter={mounted ? openNow : undefined}
+          onMouseLeave={mounted ? scheduleClose : undefined}
+        >
+          {mounted ?
+            <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+              <DropdownMenuTrigger
+                onClick={(e) => e.preventDefault()}
+                className={cn(
+                  "group inline-flex items-center gap-1 text-sm font-medium transition-colors outline-none",
+                  ministryActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {MINISTRY_LABEL}
+                <ChevronDown
+                  className="size-3.5 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  aria-hidden
+                />
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent
+                align="center"
+                sideOffset={12}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+                onMouseEnter={cancelClose}
+                onMouseLeave={scheduleClose}
+                className={menuContentClassName}
+              >
+                {siteMinistryNav.map((item) => (
+                  <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
+                ))}
+                <DropdownMenuSeparator className="my-1 bg-border/50" />
+                {siteMinistrySecondaryNav.map((item) => (
+                  <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          : <span
               className={cn(
-                "group inline-flex items-center gap-1 text-sm font-medium transition-colors outline-none",
+                "inline-flex items-center gap-1 text-sm font-medium",
                 ministryActive
                   ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground"
               )}
             >
               {MINISTRY_LABEL}
-              <ChevronDown
-                className="size-3.5 transition-transform duration-200 group-data-[state=open]:rotate-180"
-                aria-hidden
-              />
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent
-              align="center"
-              sideOffset={12}
-              onCloseAutoFocus={(e) => e.preventDefault()}
-              onMouseEnter={cancelClose}
-              onMouseLeave={scheduleClose}
-              className={menuContentClassName}
-            >
-              {siteMinistryNav.map((item) => (
-                <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
-              ))}
-              <DropdownMenuSeparator className="my-1 bg-border/50" />
-              {siteMinistrySecondaryNav.map((item) => (
-                <MinistryMenuLink key={item.label} item={item} pathname={pathname} />
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <ChevronDown className="size-3.5" aria-hidden />
+            </span>
+          }
         </li>
       </ul>
     </nav>

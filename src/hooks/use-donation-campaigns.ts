@@ -6,18 +6,19 @@ import {
   doc,
   onSnapshot,
   orderBy,
-  query,
   where,
 } from "firebase/firestore";
 
 import type { FirebaseDonationCampaign } from "@/types/firebase-donation";
 
 import { useActiveChurchScope } from "@/context/active-church-context";
+import { buildClientScopedQuery } from "@/lib/church-query-builder";
 import {
   DONATION_CAMPAIGNS_COLLECTION,
   filterActiveCampaigns,
   normalizeDonationCampaignFromFirestore,
 } from "@/lib/donation-firestore";
+import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { db } from "@/lib/firebase";
 
 type UseActiveDonationCampaignsOptions = {
@@ -34,13 +35,13 @@ export function useActiveDonationCampaigns(
   const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
-    if (!churchId) return;
+    if (MULTI_CHURCH_ENABLED && !churchId) return;
 
     setSyncing(true);
 
-    const campaignsQuery = query(
+    const campaignsQuery = buildClientScopedQuery(
       collection(db, DONATION_CAMPAIGNS_COLLECTION),
-      where("churchId", "==", churchId),
+      churchId,
       where("status", "==", "active"),
       orderBy("createdAt", "desc")
     );

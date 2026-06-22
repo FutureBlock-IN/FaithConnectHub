@@ -9,6 +9,7 @@ import type { FirebaseChurch } from "@/types/firebase-church";
 import { ActiveChurchProvider } from "@/context/active-church-context";
 import { FirebaseAuthProvider } from "@/context/firebase-auth-context";
 import { FavoritesProvider } from "@/context/favorites-context";
+import { RecentlyViewedProvider } from "@/context/recently-viewed-context";
 import { ContentAuthDialogProvider } from "@/context/content-auth-dialog-context";
 import { GlobalAudioPlayerShell } from "./global-audio-player-shell";
 import { Toaster } from "./ui/sonner";
@@ -52,13 +53,15 @@ export default function Providers({
       >
         <FirebaseAuthProvider>
           <FavoritesProvider>
-            <ContentAuthDialogProvider>
-              <QueryClientProvider client={queryClient}>
-                <TooltipProvider>
-                  <GlobalAudioPlayerShell>{children}</GlobalAudioPlayerShell>
-                </TooltipProvider>
-              </QueryClientProvider>
-            </ContentAuthDialogProvider>
+            <RecentlyViewedProvider>
+              <ContentAuthDialogProvider>
+                <QueryClientProvider client={queryClient}>
+                  <TooltipProvider>
+                    <GlobalAudioPlayerShell>{children}</GlobalAudioPlayerShell>
+                  </TooltipProvider>
+                </QueryClientProvider>
+              </ContentAuthDialogProvider>
+            </RecentlyViewedProvider>
           </FavoritesProvider>
         </FirebaseAuthProvider>
       </ActiveChurchProvider>

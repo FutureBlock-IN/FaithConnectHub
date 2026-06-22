@@ -15,6 +15,8 @@ import {
 
   Home,
 
+  LayoutDashboard,
+
   Info,
 
   Loader2,
@@ -79,6 +81,7 @@ import {
 
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useMounted } from "@/hooks/use-mounted";
 
 function getInitials(
   authUser: AuthUser,
@@ -203,9 +206,11 @@ export function AuthNav() {
 
   const router = useRouter();
 
+  const mounted = useMounted();
 
 
-  if (loading) {
+
+  if (loading || !mounted) {
 
     return (
 
@@ -376,6 +381,20 @@ export function AuthNav() {
             <User2 className="mr-2 size-4" />
 
             Profile
+
+          </Link>
+
+        </DropdownMenuItem>
+
+
+
+        <DropdownMenuItem asChild>
+
+          <Link href="/profile/dashboard">
+
+            <LayoutDashboard className="mr-2 size-4" />
+
+            My Dashboard
 
           </Link>
 

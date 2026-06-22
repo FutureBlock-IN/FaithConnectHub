@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
   CalendarDays,
+  FileText,
   HeartHandshake,
   Home,
   Info,
@@ -76,5 +77,11 @@ export const siteMinistrySecondaryNav: SiteNavItem[] = [
     href: "/privacy",
     icon: Lock,
     match: (pathname) => pathname.startsWith("/privacy"),
+  },
+  {
+    label: "Terms of Service",
+    href: "/terms",
+    icon: FileText,
+    match: (pathname) => pathname.startsWith("/terms"),
   },
 ];

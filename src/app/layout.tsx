@@ -8,9 +8,11 @@ import type { Metadata, Viewport } from "next";
 import type { ThemeConfig } from "@/types";
 
 import Providers from "@/components/provider";
+import { SiteJsonLd } from "@/components/seo/json-ld";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { siteConfig } from "@/config/site";
 import { env } from "@/lib/env";
+import { SEO_KEYWORDS } from "@/lib/seo";
 import { getActiveChurchesCached } from "@/lib/cached-church-data";
 import { getActiveChurchIdFromCookies } from "@/lib/church-server";
 import * as fonts from "@/lib/fonts";
@@ -52,6 +54,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             initialChurches={initialChurches}
             initialActiveChurchId={initialActiveChurchId}
           >
+            <SiteJsonLd />
             {children}
           </Providers>
 
@@ -87,6 +90,10 @@ export const metadata: Metadata = {
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  keywords: [...SEO_KEYWORDS],
+  alternates: {
+    canonical: siteConfig.url,
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -94,14 +101,13 @@ export const metadata: Metadata = {
     title: siteConfig.name,
     description: siteConfig.description,
     siteName: siteConfig.name,
-    images: [{ url: siteConfig.image, alt: siteConfig.name }],
+    images: [{ url: absoluteUrl(siteConfig.image), alt: siteConfig.name }],
   },
   twitter: {
     card: "summary_large_image",
     title: siteConfig.name,
     description: siteConfig.description,
-    creator: siteConfig.author.x,
-    images: [siteConfig.image],
+    images: [absoluteUrl(siteConfig.image)],
   },
   icons: {
     icon: [

@@ -5,6 +5,7 @@ import {
   getActiveDonationCampaigns,
   getDonationCampaignById,
 } from "./firebase-donation-queries";
+import { recordMatchesChurchScope } from "./church-scope";
 
 const REVALIDATE_SECONDS = 60;
 
@@ -21,7 +22,7 @@ export const getDonationCampaignByIdCached = cache(
     return unstable_cache(
       async () => {
         const campaign = await getDonationCampaignById(campaignId);
-        if (!campaign || campaign.churchId !== churchId) return null;
+        if (!recordMatchesChurchScope(campaign, churchId)) return null;
         return campaign;
       },
       ["donation-campaign-by-id", churchId, campaignId],

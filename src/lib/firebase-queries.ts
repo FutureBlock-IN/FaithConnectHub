@@ -29,7 +29,7 @@ import {
   toSongFirestorePayload,
 } from "./song-firestore";
 import { filterRecordsByChurch } from "./church-scope";
-import { buildChurchScopedQuery } from "./church-query-builder";
+import { buildAdminChurchScopedQuery, buildChurchScopedQuery } from "./church-query-builder";
 import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
 
 const SONGS_COLLECTION = "songs";
@@ -91,11 +91,13 @@ async function fetchAllSongs(churchId: string): Promise<FirebaseSong[]> {
 
   if (adminDb) {
     try {
-      const snapshot = await adminDb
-        .collection(SONGS_COLLECTION)
-        .where("churchId", "==", churchId)
-        .orderBy("createdAt", "desc")
-        .get();
+      const snapshot = await buildAdminChurchScopedQuery(
+        adminDb,
+        SONGS_COLLECTION,
+        churchId,
+        "createdAt",
+        "desc"
+      ).get();
 
       const songs = snapshot.docs.map((docSnap) =>
         normalizeSong(docSnap.id, docSnap.data() as Record<string, unknown>)

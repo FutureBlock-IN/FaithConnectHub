@@ -6,9 +6,8 @@ import { Search } from "lucide-react";
 import { FirebaseWorshipSearch } from "@/components/search/firebase-worship-search";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useEffectiveWorshipCollectionTab } from "@/hooks/use-effective-worship-collection-tab";
 import { useIsTyping } from "@/hooks/use-store";
-import { getSearchPlaceholder } from "@/lib/worship-collection";
+import { getGlobalSearchPlaceholder } from "@/lib/worship-collection";
 
 type MobileSearchProps = {
   topSearch: React.JSX.Element;
@@ -19,9 +18,8 @@ export function MobileSearch({ topSearch }: MobileSearchProps) {
 
   const debouncedQuery = useDebounce(query.trim(), 500);
   const [_, setIsTyping] = useIsTyping();
-  const { activeTab } = useEffectiveWorshipCollectionTab();
 
-  const searchPlaceholder = getSearchPlaceholder(activeTab);
+  const searchPlaceholder = getGlobalSearchPlaceholder();
 
   React.useEffect(() => {
     setIsTyping(debouncedQuery.length > 0);
