@@ -26,9 +26,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { addSong, updateSong } from "@/lib/firebase-queries";
-import { useAdminChurchId } from "@/hooks/use-admin-church-id";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useSubscriptionOptional } from "@/context/subscription-context";
 import { notifyIfNewlyPublished } from "@/lib/notify-if-published";
-import { SONG_CATEGORIES } from "@/lib/song-firestore";
+import { SONG_CATEGORIES } from "@/types/firebase-song";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import {
   MAX_AUDIO_SIZE_LABEL,
@@ -149,6 +150,8 @@ export function AddMusicModal({
   initialSong,
   churchId,
 }: AddMusicModalProps) {
+  const { user } = useFirebaseAuth();
+  const subscription = useSubscriptionOptional();
   const [formData, setFormData] = useState<SongFormData>(EMPTY_FORM);
   const [files, setFiles] = useState<{ cover?: File; audio?: File }>({});
   const [coverPreview, setCoverPreview] = useState("");
@@ -267,10 +270,15 @@ export function AddMusicModal({
       return;
     }
 
+    if (!initialSong && subscription && !subscription.checkUsageLimit("songs")) {
+      return;
+    }
+
     setLoading(true);
     setUploadProgress({ cover: 0, audio: 0 });
 
     try {
+      const idToken = user ? await user.getIdToken() : undefined;
       const payload = buildSongPayload();
       const wasPublished = initialSong?.published !== false;
 
@@ -306,6 +314,7 @@ export function AddMusicModal({
             image: mediaUpdates.imageUrl ?? initialSong.imageUrl ?? "",
             isPublished: true,
             wasPublished,
+            idToken,
           });
         }
 
@@ -344,6 +353,7 @@ export function AddMusicModal({
           contentTitle: payload.songTitle,
           image: mediaUpdates.imageUrl ?? "",
           isPublished: payload.published,
+          idToken,
         });
 
         toast.success("Song added successfully");
@@ -368,7 +378,7 @@ export function AddMusicModal({
         if (!open && !loading) onClose();
       }}
     >
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{initialSong ? "Edit Song" : "Add New Song"}</DialogTitle>
           <DialogDescription>

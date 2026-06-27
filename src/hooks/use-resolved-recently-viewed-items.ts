@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
 import type { FirebaseRecentlyViewed } from "@/types/firebase-recently-viewed";
@@ -9,7 +8,7 @@ import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
-import { db } from "@/lib/firebase";
+import { getFirestoreDocsByIds } from "@/lib/firestore-batch-get";
 import { normalizeSermonFromFirestore } from "@/lib/sermon-firestore";
 import {
   filterPublishedSongs,
@@ -17,13 +16,29 @@ import {
 } from "@/lib/song-firestore";
 
 export type ResolvedRecentlyViewedItem =
-  | { itemType: "song"; item: FirebaseSong }
-  | { itemType: "sermon"; item: FirebaseSermon }
-  | { itemType: "article"; item: FirebaseArticle };
+  | {
+      entryId: string;
+      itemType: "song";
+      item: FirebaseSong;
+      viewedAt: number;
+    }
+  | {
+      entryId: string;
+      itemType: "sermon";
+      item: FirebaseSermon;
+      viewedAt: number;
+    }
+  | {
+      entryId: string;
+      itemType: "article";
+      item: FirebaseArticle;
+      viewedAt: number;
+    };
 
 type ResolvedRecentlyViewedItems = {
   items: ResolvedRecentlyViewedItem[];
   loading: boolean;
+  error: string | null;
 };
 
 export function useResolvedRecentlyViewedItems(
@@ -31,6 +46,7 @@ export function useResolvedRecentlyViewedItems(
 ): ResolvedRecentlyViewedItems {
   const [items, setItems] = useState<ResolvedRecentlyViewedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const recentlyViewedKey = useMemo(
     () =>
@@ -47,23 +63,55 @@ export function useResolvedRecentlyViewedItems(
       if (recentlyViewed.length === 0) {
         setItems([]);
         setLoading(false);
+        setError(null);
         return;
       }
 
       setLoading(true);
+      setError(null);
 
       try {
-        const resolved = await Promise.all(
-          recentlyViewed.map((entry) => resolveRecentlyViewedEntry(entry))
-        );
+        const songIds = recentlyViewed
+          .filter((entry) => entry.itemType === "song")
+          .map((entry) => entry.itemId);
+        const sermonIds = recentlyViewed
+          .filter((entry) => entry.itemType === "sermon")
+          .map((entry) => entry.itemId);
+        const articleIds = recentlyViewed
+          .filter((entry) => entry.itemType === "article")
+          .map((entry) => entry.itemId);
+
+        const [songs, sermons, articles] = await Promise.all([
+          getFirestoreDocsByIds("songs", songIds, normalizeSongFromFirestore),
+          getFirestoreDocsByIds("sermons", sermonIds, normalizeSermonFromFirestore),
+          getFirestoreDocsByIds("articles", articleIds, normalizeArticleFromFirestore),
+        ]);
 
         if (cancelled) return;
 
-        setItems(
-          resolved.filter(
-            (entry): entry is ResolvedRecentlyViewedItem => entry !== null
-          )
+        const songMap = new Map(
+          filterPublishedSongs(songs).map((song) => [song.id, song])
         );
+        const sermonMap = new Map(
+          sermons
+            .filter((sermon) => sermon.isPublished)
+            .map((sermon) => [sermon.id, sermon])
+        );
+        const articleMap = new Map(
+          articles
+            .filter((article) => article.isPublished)
+            .map((article) => [article.id, article])
+        );
+
+        const resolved = recentlyViewed
+          .map((entry) => resolveEntry(entry, songMap, sermonMap, articleMap))
+          .filter((entry): entry is ResolvedRecentlyViewedItem => entry !== null);
+
+        setItems(resolved);
+      } catch {
+        if (!cancelled) {
+          setError("Unable to load recently viewed items. Please try again.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -76,42 +124,32 @@ export function useResolvedRecentlyViewedItems(
     };
   }, [recentlyViewedKey, recentlyViewed]);
 
-  return { items, loading };
+  return { items, loading, error };
 }
 
-async function resolveRecentlyViewedEntry(
-  entry: FirebaseRecentlyViewed
-): Promise<ResolvedRecentlyViewedItem | null> {
+function resolveEntry(
+  entry: FirebaseRecentlyViewed,
+  songMap: Map<string, FirebaseSong>,
+  sermonMap: Map<string, FirebaseSermon>,
+  articleMap: Map<string, FirebaseArticle>
+): ResolvedRecentlyViewedItem | null {
   switch (entry.itemType) {
     case "song": {
-      const snapshot = await getDoc(doc(db, "songs", entry.itemId));
-      if (!snapshot.exists()) return null;
-      const song = normalizeSongFromFirestore(
-        snapshot.id,
-        snapshot.data() as Record<string, unknown>
-      );
-      return filterPublishedSongs([song]).length > 0 ?
-          { itemType: "song", item: song }
+      const item = songMap.get(entry.itemId);
+      return item ?
+          { entryId: entry.id, itemType: "song", item, viewedAt: entry.viewedAt }
         : null;
     }
     case "sermon": {
-      const snapshot = await getDoc(doc(db, "sermons", entry.itemId));
-      if (!snapshot.exists()) return null;
-      const sermon = normalizeSermonFromFirestore(
-        snapshot.id,
-        snapshot.data() as Record<string, unknown>
-      );
-      return sermon.isPublished ? { itemType: "sermon", item: sermon } : null;
+      const item = sermonMap.get(entry.itemId);
+      return item ?
+          { entryId: entry.id, itemType: "sermon", item, viewedAt: entry.viewedAt }
+        : null;
     }
     case "article": {
-      const snapshot = await getDoc(doc(db, "articles", entry.itemId));
-      if (!snapshot.exists()) return null;
-      const article = normalizeArticleFromFirestore(
-        snapshot.id,
-        snapshot.data() as Record<string, unknown>
-      );
-      return article.isPublished ?
-          { itemType: "article", item: article }
+      const item = articleMap.get(entry.itemId);
+      return item ?
+          { entryId: entry.id, itemType: "article", item, viewedAt: entry.viewedAt }
         : null;
     }
   }

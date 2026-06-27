@@ -12,7 +12,9 @@ import type { PrayerRequestStatus } from "@/types/firebase-prayer-request";
 
 import { db } from "./firebase";
 import {
+  buildPrayerIntercessionId,
   buildPrayerRequestCreatePayload,
+  PRAYER_INTERCESSIONS_COLLECTION,
   PRAYER_REQUESTS_COLLECTION,
 } from "./prayer-request-firestore";
 import { wrapFirebaseError } from "./firebase-utils";
@@ -52,10 +54,102 @@ export async function createPrayerRequest(
   }
 }
 
-async function updatePrayerCountByDelta(
+export async function recordPrayerIntercession(
   requestId: string,
-  delta: 1 | -1
+  userId: string
 ): Promise<void> {
+  if (!requestId.trim() || !userId.trim()) {
+    throw new Error("Prayer request and user are required");
+  }
+
+  const intercessionRef = doc(
+    db,
+    PRAYER_INTERCESSIONS_COLLECTION,
+    buildPrayerIntercessionId(requestId, userId)
+  );
+  const requestRef = doc(db, PRAYER_REQUESTS_COLLECTION, requestId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const [intercessionSnap, requestSnap] = await Promise.all([
+        transaction.get(intercessionRef),
+        transaction.get(requestRef),
+      ]);
+
+      if (intercessionSnap.exists()) {
+        throw new Error("You have already prayed for this request");
+      }
+
+      if (!requestSnap.exists()) {
+        throw new Error("Prayer request not found");
+      }
+
+      const data = requestSnap.data();
+      if (data.status !== "approved") {
+        throw new Error("Prayer request is not available");
+      }
+
+      const currentCount = Math.max(0, Math.floor(Number(data.prayerCount ?? 0)));
+
+      transaction.set(intercessionRef, {
+        requestId,
+        userId,
+        createdAt: Timestamp.now(),
+      });
+
+      transaction.update(requestRef, {
+        prayerCount: currentCount + 1,
+        updatedAt: Timestamp.now(),
+      });
+    });
+  } catch (error) {
+    wrapFirebaseError(error);
+  }
+}
+
+export async function markPrayerRequestAnswered(
+  requestId: string,
+  userId: string
+): Promise<void> {
+  if (!requestId.trim() || !userId.trim()) {
+    throw new Error("Prayer request and user are required");
+  }
+
+  const requestRef = doc(db, PRAYER_REQUESTS_COLLECTION, requestId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const requestSnap = await transaction.get(requestRef);
+
+      if (!requestSnap.exists()) {
+        throw new Error("Prayer request not found");
+      }
+
+      const data = requestSnap.data();
+      if (data.userId !== userId) {
+        throw new Error("You can only mark your own prayer requests as answered");
+      }
+
+      if (data.isAnswered === true) {
+        return;
+      }
+
+      transaction.update(requestRef, {
+        isAnswered: true,
+        answeredAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    });
+  } catch (error) {
+    wrapFirebaseError(error);
+  }
+}
+
+export async function incrementPrayerCount(requestId: string): Promise<void> {
+  if (!requestId.trim()) {
+    throw new Error("Prayer request id is required");
+  }
+
   const ref = doc(db, PRAYER_REQUESTS_COLLECTION, requestId);
 
   await runTransaction(db, async (transaction) => {
@@ -70,42 +164,13 @@ async function updatePrayerCountByDelta(
       throw new Error("Prayer request is not available");
     }
 
-    const current = Number(data.prayerCount ?? 0) || 0;
-    const next = current + delta;
-
-    if (next < 0) {
-      throw new Error("Prayer count cannot be negative");
-    }
+    const currentCount = Math.max(0, Math.floor(Number(data.prayerCount ?? 0)));
 
     transaction.update(ref, {
-      prayerCount: next,
+      prayerCount: currentCount + 1,
       updatedAt: Timestamp.now(),
     });
   });
-}
-
-export async function incrementPrayerCount(requestId: string): Promise<void> {
-  if (!requestId.trim()) {
-    throw new Error("Prayer request id is required");
-  }
-
-  try {
-    await updatePrayerCountByDelta(requestId, 1);
-  } catch (error) {
-    wrapFirebaseError(error);
-  }
-}
-
-export async function decrementPrayerCount(requestId: string): Promise<void> {
-  if (!requestId.trim()) {
-    throw new Error("Prayer request id is required");
-  }
-
-  try {
-    await updatePrayerCountByDelta(requestId, -1);
-  } catch (error) {
-    wrapFirebaseError(error);
-  }
 }
 
 export async function updatePrayerRequestStatus(

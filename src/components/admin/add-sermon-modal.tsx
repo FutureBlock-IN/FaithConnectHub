@@ -119,7 +119,7 @@ export function AddSermonModal({
   initialSermon,
   churchId,
 }: AddSermonModalProps) {
-  const { authUser } = useFirebaseAuth();
+  const { user, authUser } = useFirebaseAuth();
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -207,6 +207,8 @@ export function AddSermonModal({
 
     setLoading(true);
     try {
+      const idToken = user ? await user.getIdToken() : undefined;
+
       if (initialSermon) {
         await updateSermon(initialSermon.id, payload);
 
@@ -231,6 +233,7 @@ export function AddSermonModal({
           image: coverImageUrl,
           isPublished: payload.isPublished,
           wasPublished: initialSermon.isPublished,
+          idToken,
         });
 
         toast.success("Sermon updated successfully");
@@ -262,6 +265,7 @@ export function AddSermonModal({
           contentTitle: payload.title,
           image: coverImageUrl,
           isPublished: payload.isPublished,
+          idToken,
         });
 
         toast.success("Sermon added successfully");
@@ -281,7 +285,7 @@ export function AddSermonModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !loading) onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initialSermon ? "Edit Sermon" : "Add Sermon"}</DialogTitle>
           <DialogDescription>

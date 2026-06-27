@@ -42,8 +42,27 @@ service cloud.firestore {
         && request.resource.data.churchId.size() > 0;
     }
 
+    /** Legacy single-tenant installs may use a shared default church id. */
+    function isLegacyDefaultChurchId(churchId) {
+      return churchId == "default" || churchId == "faithconnecthub";
+    }
+
     function churchIdUnchanged() {
       return request.resource.data.churchId == resource.data.churchId;
+    }
+
+    function isValidUserSelfUpdate() {
+      return request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "firstName",
+          "lastName",
+          "email",
+          "emailPreferences",
+          "updatedAt",
+          "churchId",
+          "churchRole",
+          "managedChurchIds"
+        ]);
     }
 
     function isValidPrayerRequestCreate() {
@@ -59,7 +78,8 @@ service cloud.firestore {
         "createdAt",
         "updatedAt"
       ])
-        && hasValidChurchId()
+        && request.resource.data.churchId is string
+        && (hasValidChurchId() || isLegacyDefaultChurchId(request.resource.data.churchId))
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.title is string
@@ -70,28 +90,78 @@ service cloud.firestore {
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 100
         && request.resource.data.request.size() > 0
-        && request.resource.data.request.size() <= 1000;
+        && request.resource.data.request.size() <= 1000
+        && (!('category' in request.resource.data)
+          || request.resource.data.category is string)
+        && (!('shareWithCommunity' in request.resource.data)
+          || request.resource.data.shareWithCommunity is bool)
+        && (!('isAnswered' in request.resource.data)
+          || request.resource.data.isAnswered == false);
+    }
+
+    function isPrayerRequestOwnerAnswered() {
+      return isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && resource.data.isAnswered != true
+        && request.resource.data.isAnswered == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "isAnswered",
+          "answeredAt",
+          "updatedAt"
+        ]);
+    }
+
+    function isValidPrayerIntercessionCreate(intercessionId) {
+      return isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.requestId is string
+        && request.resource.data.requestId.size() > 0
+        && request.resource.data.keys().hasAll([
+          "requestId",
+          "userId",
+          "createdAt"
+        ])
+        && intercessionId == request.resource.data.requestId + '_' + request.auth.uid;
+    }
+
+    function currentPrayerCount() {
+      return resource.data.prayerCount is int
+        ? resource.data.prayerCount
+        : (resource.data.prayerCount is float
+          ? int(resource.data.prayerCount)
+          : 0);
     }
 
     function isPrayerCountIncrement() {
-      return resource.data.status == "approved"
+      return isSignedIn()
+        && resource.data.status == "approved"
         && request.resource.data.status == "approved"
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "prayerCount",
           "updatedAt"
         ])
-        && request.resource.data.prayerCount == resource.data.prayerCount + 1;
+        && request.resource.data.prayerCount is int
+        && request.resource.data.prayerCount == currentPrayerCount() + 1;
     }
 
     function isPrayerCountDecrement() {
-      return resource.data.status == "approved"
+      return isSignedIn()
+        && resource.data.status == "approved"
         && request.resource.data.status == "approved"
-        && resource.data.prayerCount > 0
+        && currentPrayerCount() > 0
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "prayerCount",
           "updatedAt"
         ])
-        && request.resource.data.prayerCount == resource.data.prayerCount - 1;
+        && request.resource.data.prayerCount == currentPrayerCount() - 1;
+    }
+
+    function isSongPlayCountIncrement() {
+      return isSignedIn()
+        && churchIdUnchanged()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["playCount"])
+        && request.resource.data.playCount
+          == (resource.data.playCount is int ? resource.data.playCount + 1 : 1);
     }
 
     match /churches/{churchId} {
@@ -102,7 +172,8 @@ service cloud.firestore {
     match /songs/{songId} {
       allow read: if true;
       allow create: if canManageChurchContent(request.resource.data.churchId) && hasValidChurchId();
-      allow update: if canManageChurchContent(resource.data.churchId) && churchIdUnchanged();
+      allow update: if (canManageChurchContent(resource.data.churchId) && churchIdUnchanged())
+        || isSongPlayCountIncrement();
       allow delete: if canManageChurchContent(resource.data.churchId);
     }
 
@@ -132,6 +203,13 @@ service cloud.firestore {
       allow create: if canManageChurchContent(request.resource.data.churchId) && hasValidChurchId();
       allow update: if canManageChurchContent(resource.data.churchId) && churchIdUnchanged();
       allow delete: if canManageChurchContent(resource.data.churchId);
+    }
+
+    match /eventRegistrations/{registrationId} {
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if false;
+      allow update, delete: if false;
     }
 
     match /donationCampaigns/{campaignId} {
@@ -187,8 +265,19 @@ service cloud.firestore {
       allow update: if isPlatformSuperAdmin()
         || isChurchAdminFor(resource.data.churchId)
         || isPrayerCountIncrement()
-        || isPrayerCountDecrement();
+        || isPrayerCountDecrement()
+        || isPrayerRequestOwnerAnswered();
       allow delete: if isPlatformSuperAdmin() || isChurchAdminFor(resource.data.churchId);
+    }
+
+    match /prayerIntercessions/{intercessionId} {
+      allow read: if isSignedIn() && (
+        resource == null
+        || resource.data.userId == request.auth.uid
+        || isPlatformSuperAdmin()
+      );
+      allow create: if isValidPrayerIntercessionCreate(intercessionId);
+      allow update, delete: if false;
     }
 
     match /notifications/{notificationId} {
@@ -230,7 +319,14 @@ service cloud.firestore {
         && request.resource.data.role == "user";
       allow update: if isSignedIn()
         && request.auth.uid == userId
-        && request.resource.data.role == resource.data.role;
+        && isValidUserSelfUpdate();
+    }
+
+    match /subscriptions/{churchId} {
+      allow read: if isPlatformSuperAdmin()
+        || isChurchAdminFor(churchId)
+        || (userDocExists() && userData().churchId == churchId);
+      allow create, update, delete: if isPlatformSuperAdmin();
     }
   }
 }

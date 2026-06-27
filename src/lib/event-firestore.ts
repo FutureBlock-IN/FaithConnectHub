@@ -6,7 +6,10 @@ import type {
 } from "@/types/firebase-event";
 import { EVENT_TYPES } from "@/types/firebase-event";
 
-import { resolveDocumentChurchId } from "./church-scope";
+import {
+  resolveChurchIdForWrite,
+  resolveDocumentChurchId,
+} from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 export const EVENTS_COLLECTION = "events";
@@ -48,7 +51,7 @@ export function normalizeEventFromFirestore(
 
 export function buildEventCreatePayload(input: CreateEventInput) {
   return {
-    churchId: input.churchId.trim(),
+    churchId: resolveChurchIdForWrite(input.churchId),
     title: input.title.trim(),
     description: input.description.trim(),
     bannerImage: input.bannerImage?.trim() || "",
@@ -59,6 +62,71 @@ export function buildEventCreatePayload(input: CreateEventInput) {
     location: input.location.trim(),
     status: input.status,
   };
+}
+
+/** Start of local calendar day for an ISO date string (YYYY-MM-DD). */
+export function getEventDateStartMs(eventDate: string): number | null {
+  const trimmed = eventDate.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date.getTime();
+}
+
+/** Start of today's local calendar day. */
+export function getTodayStartMs(now = Date.now()): number {
+  const today = new Date(now);
+  return new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ).getTime();
+}
+
+/**
+ * Whether an event is still upcoming based on its scheduled date (not createdAt).
+ * - Future dates → upcoming
+ * - Past dates → past
+ * - Today → upcoming until start time passes (or all day if no time)
+ */
+export function isEventUpcoming(event: FirebaseEvent, now = Date.now()): boolean {
+  const eventDay = getEventDateStartMs(event.eventDate);
+  if (eventDay === null) {
+    const start = getEventStartTimestamp(event);
+    return start > 0 && start >= now;
+  }
+
+  const today = getTodayStartMs(now);
+  if (eventDay > today) return true;
+  if (eventDay < today) return false;
+
+  const timePart = event.eventTime.trim();
+  if (!timePart) return true;
+
+  const start = getEventStartTimestamp(event);
+  if (start <= 0) return true;
+
+  return start >= now;
+}
+
+/** ISO-8601 start datetime for schema/email — undefined when unparseable. */
+export function eventToIsoStartDate(event: FirebaseEvent): string | undefined {
+  const start = getEventStartTimestamp(event);
+  if (start <= 0 || Number.isNaN(start)) return undefined;
+  return new Date(start).toISOString();
 }
 
 /** Parse event date + time into a timestamp for upcoming/past sorting. */
@@ -123,8 +191,7 @@ export function splitEventsBySchedule(events: FirebaseEvent[], now = Date.now())
   const past: FirebaseEvent[] = [];
 
   for (const event of events) {
-    const start = getEventStartTimestamp(event);
-    if (start >= now) {
+    if (isEventUpcoming(event, now)) {
       upcoming.push(event);
     } else {
       past.push(event);

@@ -38,9 +38,18 @@ export function usePublishedEvents(
   const [syncing, setSyncing] = useState(initialData.length === 0);
 
   useEffect(() => {
+    setEvents(initialData);
+    if (initialData.length > 0) {
+      setSyncing(false);
+    }
+  }, [initialData]);
+
+  useEffect(() => {
     if (MULTI_CHURCH_ENABLED && !churchId) return;
 
-    setSyncing(true);
+    if (initialData.length === 0) {
+      setSyncing(true);
+    }
 
     const baseQuery = buildClientScopedQuery(
       collection(db, EVENTS_COLLECTION),

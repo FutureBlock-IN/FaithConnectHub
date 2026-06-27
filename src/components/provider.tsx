@@ -11,6 +11,7 @@ import { FirebaseAuthProvider } from "@/context/firebase-auth-context";
 import { FavoritesProvider } from "@/context/favorites-context";
 import { RecentlyViewedProvider } from "@/context/recently-viewed-context";
 import { ContentAuthDialogProvider } from "@/context/content-auth-dialog-context";
+import { SubscriptionShell } from "@/components/subscription/subscription-shell";
 import { GlobalAudioPlayerShell } from "./global-audio-player-shell";
 import { Toaster } from "./ui/sonner";
 import { TooltipProvider } from "./ui/tooltip";
@@ -56,9 +57,11 @@ export default function Providers({
             <RecentlyViewedProvider>
               <ContentAuthDialogProvider>
                 <QueryClientProvider client={queryClient}>
-                  <TooltipProvider>
-                    <GlobalAudioPlayerShell>{children}</GlobalAudioPlayerShell>
-                  </TooltipProvider>
+                  <SubscriptionShell>
+                    <TooltipProvider>
+                      <GlobalAudioPlayerShell>{children}</GlobalAudioPlayerShell>
+                    </TooltipProvider>
+                  </SubscriptionShell>
                 </QueryClientProvider>
               </ContentAuthDialogProvider>
             </RecentlyViewedProvider>

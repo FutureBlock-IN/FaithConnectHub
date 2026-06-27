@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase/firestore";
 
 export const FIREBASE_PERMISSION_HELP =
-  "Firebase permission denied. Deploy firestore.rules (run: firebase deploy --only firestore:rules,storage) or publish rules in Firebase Console. If using a service account, ensure firebase-service-account.json is for project faithconnecthub-a4e6b.";
+  "Firebase permission denied. Deploy firestore.rules (run: firebase deploy --only firestore:rules) or publish rules in Firebase Console. Ensure your account has admin access and firebase-service-account.json is for project faithconnecthub-a4e6b.";
 
 export function isRecoverableAdminError(error: unknown): boolean {
   const message =
@@ -67,7 +67,20 @@ export function wrapFirebaseError(error: unknown): never {
   const message =
     error instanceof Error ? error.message : "Unknown Firebase error";
 
-  if (message.includes("PERMISSION_DENIED") || message.includes("permission")) {
+  if (
+    message.includes("already prayed") ||
+    message.includes("not available") ||
+    message.includes("not found") ||
+    message.includes("required") ||
+    message.includes("only mark your own")
+  ) {
+    throw error instanceof Error ? error : new Error(message);
+  }
+
+  if (
+    message.includes("PERMISSION_DENIED") ||
+    message.includes("Missing or insufficient permissions")
+  ) {
     throw new Error(FIREBASE_PERMISSION_HELP);
   }
 

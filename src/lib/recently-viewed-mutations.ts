@@ -19,7 +19,6 @@ import {
   RECENTLY_VIEWED_LIMIT,
 } from "./recently-viewed-firestore";
 import { db } from "./firebase";
-import { wrapFirebaseError } from "./firebase-utils";
 
 export async function recordRecentlyViewed(
   userId: string,
@@ -44,12 +43,27 @@ export async function recordRecentlyViewed(
 
     await trimRecentlyViewedForUser(userId);
   } catch (error) {
-    wrapFirebaseError(error);
+    console.warn("[recordRecentlyViewed] Failed:", error);
   }
 }
 
 /** @deprecated Use recordRecentlyViewed */
 export const trackRecentlyViewedItem = recordRecentlyViewed;
+
+export async function clearRecentlyViewedHistory(userId: string): Promise<void> {
+  const trimmedUserId = userId.trim();
+  if (!trimmedUserId) return;
+
+  const recentlyViewedQuery = query(
+    collection(db, RECENTLY_VIEWED_COLLECTION),
+    where("userId", "==", trimmedUserId)
+  );
+
+  const snapshot = await getDocs(recentlyViewedQuery);
+  if (snapshot.empty) return;
+
+  await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+}
 
 async function trimRecentlyViewedForUser(userId: string): Promise<void> {
   const recentlyViewedQuery = query(

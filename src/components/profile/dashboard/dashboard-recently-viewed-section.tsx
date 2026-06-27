@@ -66,12 +66,10 @@ export function DashboardRecentlyViewedSection() {
                   entry.itemType === "song" ?
                     getSongDisplayTitle(entry.item)
                   : entry.item.title;
-                const coverSource =
-                  entry.itemType === "song" ?
-                    entry.item.imageUrl
-                  : entry.item.coverImage;
                 const coverUrl =
-                  getSongCoverUrl(coverSource) || DEFAULT_SONG_COVER;
+                  entry.itemType === "song" ?
+                    getSongCoverUrl(entry.item.imageUrl) || DEFAULT_SONG_COVER
+                  : getSongCoverUrl(entry.item.coverImage) || DEFAULT_SONG_COVER;
 
                 return (
                   <Link

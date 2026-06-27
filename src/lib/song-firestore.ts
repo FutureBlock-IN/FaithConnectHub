@@ -9,7 +9,9 @@ import type {
 
 import { resolveDocumentChurchId } from "./church-scope";
 
-export const SONG_CATEGORIES = [
+export const SONGS_COLLECTION = "songs";
+
+const SONG_CATEGORIES = [
   "Worship",
   "Praise",
   "Christmas",

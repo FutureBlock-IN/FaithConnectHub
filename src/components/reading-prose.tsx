@@ -7,10 +7,10 @@ type ReadingProseProps = {
 };
 
 const containerClassName =
-  "mx-auto w-full max-w-[750px] font-reading text-left antialiased";
+  "mx-auto w-full min-w-0 max-w-[min(100%,47rem)] font-reading text-left antialiased";
 
 const bodyClassName =
-  "text-[15px] font-normal leading-[1.8] text-foreground/75 sm:text-base";
+  "text-fluid-base font-normal leading-[1.8] text-foreground/75";
 
 /**
  * Long-form reading body for articles & sermons.
@@ -33,7 +33,7 @@ export function ReadingProse({ content, className }: ReadingProseProps) {
           return (
             <h2
               key={index}
-              className="mb-4 mt-10 text-xl font-semibold leading-snug text-foreground first:mt-0 sm:mb-5 sm:mt-12 sm:text-2xl"
+              className="mb-4 mt-10 text-fluid-2xl font-semibold leading-snug text-foreground first:mt-0 sm:mb-5 sm:mt-12"
             >
               {block.text}
             </h2>
@@ -44,7 +44,7 @@ export function ReadingProse({ content, className }: ReadingProseProps) {
           return (
             <h3
               key={index}
-              className="mb-3 mt-8 text-lg font-semibold leading-snug text-foreground first:mt-0 sm:mb-4 sm:mt-10 sm:text-xl"
+              className="mb-3 mt-8 text-fluid-xl font-semibold leading-snug text-foreground first:mt-0 sm:mb-4 sm:mt-10"
             >
               {block.text}
             </h3>

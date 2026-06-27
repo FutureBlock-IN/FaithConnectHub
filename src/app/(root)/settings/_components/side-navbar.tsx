@@ -1,5 +1,7 @@
 import React from "react";
 import {
+  Bell,
+  CreditCard,
   DownloadCloud,
   Headphones,
   ImageDown,
@@ -50,6 +52,28 @@ const sidebarNavItems: SidebarNavItem[] = [
         title: "Delete Account",
         hash: "delete-account",
         icon: <UserX2 className={iconClass} />,
+      },
+    ],
+  },
+  {
+    section: "Billing",
+    href: "/settings/billing",
+    items: [
+      {
+        title: "Subscription",
+        hash: "subscription",
+        icon: <CreditCard className={iconClass} />,
+      },
+    ],
+  },
+  {
+    section: "Notifications",
+    href: "/settings/notifications",
+    items: [
+      {
+        title: "Email Notifications",
+        hash: "email",
+        icon: <Bell className={iconClass} />,
       },
     ],
   },

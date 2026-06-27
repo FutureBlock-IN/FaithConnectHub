@@ -1,17 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import type { FirebaseEvent } from "@/types/firebase-event";
 
 import { EventCard } from "@/components/events/event-card";
+import { ContentListToolbar } from "@/components/worship/content-list-toolbar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePublishedEvents } from "@/hooks/use-published-events";
+import { contentCardGridClassName } from "@/lib/responsive-classes";
 
 type EventsListClientProps = {
   initialUpcoming: FirebaseEvent[];
   initialPast: FirebaseEvent[];
 };
+
+function matchesSearch(event: FirebaseEvent, query: string): boolean {
+  if (!query) return true;
+  return event.title.toLowerCase().includes(query);
+}
 
 export function EventsListClient({
   initialUpcoming,
@@ -24,6 +38,20 @@ export function EventsListClient({
   const { grouped, loading } = usePublishedEvents(initialCombined);
   const { upcoming, past } = grouped;
 
+  const [search, setSearch] = useState("");
+  const [scope, setScope] = useState<string>("all");
+
+  const query = search.trim().toLowerCase();
+
+  const filteredUpcoming = useMemo(
+    () => upcoming.filter((event) => matchesSearch(event, query)),
+    [upcoming, query]
+  );
+  const filteredPast = useMemo(
+    () => past.filter((event) => matchesSearch(event, query)),
+    [past, query]
+  );
+
   if (loading && upcoming.length === 0 && past.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/50 py-16">
@@ -32,10 +60,55 @@ export function EventsListClient({
     );
   }
 
+  const showUpcoming = scope === "all" || scope === "upcoming";
+  const showPast = scope === "all" || scope === "past";
+  const noResults =
+    (showUpcoming ? filteredUpcoming.length : 0) +
+      (showPast ? filteredPast.length : 0) ===
+    0;
+
   return (
-    <div className="space-y-10">
-      <EventsSection title="Upcoming Events" events={upcoming} emptyMessage="No upcoming events scheduled right now." />
-      <EventsSection title="Past Events" events={past} emptyMessage="No past events to show yet." />
+    <div className="space-y-6">
+      <ContentListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search events…"
+      >
+        <Select value={scope} onValueChange={setScope}>
+          <SelectTrigger className="w-full min-w-0 sm:w-[10rem] rounded-full">
+            <SelectValue placeholder="Schedule" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All events</SelectItem>
+            <SelectItem value="upcoming">Upcoming</SelectItem>
+            <SelectItem value="past">Past</SelectItem>
+          </SelectContent>
+        </Select>
+      </ContentListToolbar>
+
+      {noResults ?
+        <div className="rounded-2xl border border-dashed border-border/50 px-6 py-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No events match your search.
+          </p>
+        </div>
+      : <div className="space-y-10">
+          {showUpcoming ?
+            <EventsSection
+              title="Upcoming Events"
+              events={filteredUpcoming}
+              emptyMessage="No upcoming events scheduled right now."
+            />
+          : null}
+          {showPast ?
+            <EventsSection
+              title="Past Events"
+              events={filteredPast}
+              emptyMessage="No past events to show yet."
+            />
+          : null}
+        </div>
+      }
     </div>
   );
 }
@@ -56,7 +129,7 @@ function EventsSection({
         <div className="rounded-2xl border border-dashed border-border/50 px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
-      : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      : <div className={contentCardGridClassName}>
           {events.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}

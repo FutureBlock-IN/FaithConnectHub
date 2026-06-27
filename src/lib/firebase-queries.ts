@@ -7,7 +7,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   orderBy,
   query,
   Timestamp,
@@ -147,18 +146,6 @@ export async function getAllSongs(churchId: string): Promise<FirebaseSong[]> {
 export async function getPublishedSongs(churchId: string): Promise<FirebaseSong[]> {
   const songs = await fetchAllSongs(churchId);
   return filterPublishedSongs(songs);
-}
-
-// ── incrementPlayCount ────────────────────────────────────────────────────────
-export async function incrementPlayCount(songId: string): Promise<void> {
-  if (!songId?.trim()) return;
-  try {
-    await updateDoc(doc(db, SONGS_COLLECTION, songId), {
-      playCount: increment(1),
-    });
-  } catch (error) {
-    console.warn("[incrementPlayCount] Failed:", error);
-  }
 }
 
 async function fetchSongById(songId: string): Promise<FirebaseSong | null> {

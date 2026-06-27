@@ -5,6 +5,7 @@ import { EventDetailClient } from "@/components/events/event-detail-client";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getEventByIdCached } from "@/lib/cached-event-data";
+import { eventToIsoStartDate } from "@/lib/event-firestore";
 import {
   buildBreadcrumbJsonLd,
   buildEventJsonLd,
@@ -49,6 +50,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   }
 
   const path = `/events/${encodeURIComponent(event.id)}`;
+  const startDate = eventToIsoStartDate(event);
 
   return (
     <article aria-label={event.title}>
@@ -59,13 +61,18 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             { name: "Events", path: "/events" },
             { name: event.title, path },
           ]),
-          buildEventJsonLd({
-            title: event.title,
-            description: event.description,
-            path,
-            startDate: new Date(`${event.eventDate}T${event.eventTime || "00:00"}`).toISOString(),
-            location: event.location,
-          }),
+          ...(startDate ?
+            [
+              buildEventJsonLd({
+                title: event.title,
+                description: event.description,
+                path,
+                startDate,
+                location: event.location,
+                image: event.bannerImage,
+              }),
+            ]
+          : []),
         ]}
       />
       <EventDetailClient eventId={event.id} initialEvent={event} />

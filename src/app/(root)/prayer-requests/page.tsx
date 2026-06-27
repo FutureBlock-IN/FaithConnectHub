@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PrayerRequestsListClient } from "@/components/prayer/prayer-requests-list-client";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getApprovedPrayerRequestsCached } from "@/lib/cached-prayer-data";
+import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const revalidate = 60;
@@ -21,14 +22,14 @@ export default async function PrayerRequestsPage() {
 
   return (
     <section
-      className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8"
+      className={pageContentClass}
       aria-labelledby="prayer-requests-heading"
     >
-      <header className="space-y-1">
+      <header className="min-w-0 space-y-1">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
           Community
         </p>
-        <h1 id="prayer-requests-heading" className="font-heading text-2xl font-bold sm:text-3xl">
+        <h1 id="prayer-requests-heading" className={typePageTitleClass}>
           Prayer Requests
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">

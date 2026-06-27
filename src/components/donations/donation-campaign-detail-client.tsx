@@ -15,6 +15,7 @@ import {
 } from "@/lib/donation-firestore";
 import { useDonationCampaign } from "@/hooks/use-donation-campaigns";
 import { getSongCoverUrl } from "@/lib/utils";
+import { typePageTitleClass } from "@/lib/responsive-classes";
 
 type DonationCampaignDetailClientProps = {
   campaignId: string;
@@ -77,7 +78,7 @@ export function DonationCampaignDetailClient({
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
                 Active Campaign
               </p>
-              <h1 className="mt-1 font-heading text-2xl font-bold sm:text-3xl">
+              <h1 className={`mt-1 ${typePageTitleClass}`}>
                 {campaign.title}
               </h1>
             </div>

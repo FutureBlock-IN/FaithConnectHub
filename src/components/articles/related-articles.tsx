@@ -9,6 +9,7 @@ import {
   getReadingTimeMinutes,
 } from "@/lib/article-utils";
 import { DEFAULT_SONG_COVER } from "@/config/site";
+import { contentCardGridClassName } from "@/lib/responsive-classes";
 import { getSongCoverUrl } from "@/lib/utils";
 
 type RelatedArticlesProps = {
@@ -26,7 +27,7 @@ export function RelatedArticles({ articles }: RelatedArticlesProps) {
         </h2>
       </div>
 
-      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={contentCardGridClassName}>
         {articles.map((article) => {
           const coverUrl = getSongCoverUrl(article.coverImage);
           const readingTime = getReadingTimeMinutes(article.content);

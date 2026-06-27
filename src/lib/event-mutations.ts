@@ -1,3 +1,5 @@
+"use server";
+
 import {
   addDoc,
   collection,
@@ -6,6 +8,7 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
+import { FieldValue } from "firebase-admin/firestore";
 
 import type { CreateEventInput, UpdateEventInput } from "@/types/firebase-event";
 
@@ -13,15 +16,33 @@ import {
   buildEventCreatePayload,
   EVENTS_COLLECTION,
 } from "./event-firestore";
+import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
-import { wrapFirebaseError } from "./firebase-utils";
+import {
+  isRecoverableAdminError,
+  wrapFirebaseError,
+} from "./firebase-utils";
 
-/**
- * Client-side Firestore writes — must run in the browser with Firebase Auth
- * so security rules see request.auth (server actions do not attach auth).
- */
 export async function createEvent(input: CreateEventInput): Promise<string> {
   const payload = buildEventCreatePayload(input);
+  const adminDb = getAdminDb();
+
+  if (adminDb) {
+    try {
+      const docRef = await adminDb.collection(EVENTS_COLLECTION).add({
+        ...payload,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return docRef.id;
+    } catch (error) {
+      if (!isRecoverableAdminError(error)) {
+        wrapFirebaseError(error);
+      }
+      console.warn("[Firebase] Admin SDK unavailable, using client SDK:", error);
+    }
+  }
+
   const now = Timestamp.now();
 
   try {
@@ -40,6 +61,23 @@ export async function updateEvent(
   eventId: string,
   updates: UpdateEventInput
 ): Promise<void> {
+  const adminDb = getAdminDb();
+
+  if (adminDb) {
+    try {
+      await adminDb.collection(EVENTS_COLLECTION).doc(eventId).update({
+        ...updates,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return;
+    } catch (error) {
+      if (!isRecoverableAdminError(error)) {
+        wrapFirebaseError(error);
+      }
+      console.warn("[Firebase] Admin SDK unavailable, using client SDK:", error);
+    }
+  }
+
   try {
     await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
       ...updates,
@@ -51,6 +89,20 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(eventId: string): Promise<void> {
+  const adminDb = getAdminDb();
+
+  if (adminDb) {
+    try {
+      await adminDb.collection(EVENTS_COLLECTION).doc(eventId).delete();
+      return;
+    } catch (error) {
+      if (!isRecoverableAdminError(error)) {
+        wrapFirebaseError(error);
+      }
+      console.warn("[Firebase] Admin SDK unavailable, using client SDK:", error);
+    }
+  }
+
   try {
     await deleteDoc(doc(db, EVENTS_COLLECTION, eventId));
   } catch (error) {

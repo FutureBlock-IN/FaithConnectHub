@@ -37,9 +37,16 @@ function PrayerRequestList({
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="font-medium">{request.title}</p>
-            <Badge variant="secondary" className="capitalize">
-              {request.status}
-            </Badge>
+            <div className="flex flex-wrap gap-2">
+              {request.isAnswered ?
+                <Badge className="border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400">
+                  Prayer Answered
+                </Badge>
+              : null}
+              <Badge variant="secondary" className="capitalize">
+                {request.status}
+              </Badge>
+            </div>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             {toPrayerRequestPreview(request.request)}

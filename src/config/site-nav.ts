@@ -9,6 +9,7 @@ import {
   Lock,
   Mic2,
   Sparkles,
+  Tag,
 } from "lucide-react";
 
 export type SiteNavItem = {
@@ -31,6 +32,12 @@ export const sitePrimaryNav: SiteNavItem[] = [
     href: "/about",
     icon: Info,
     match: (pathname) => pathname.startsWith("/about"),
+  },
+  {
+    label: "Pricing",
+    href: "/pricing",
+    icon: Tag,
+    match: (pathname) => pathname.startsWith("/pricing"),
   },
 ];
 

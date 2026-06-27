@@ -21,6 +21,7 @@ import {
   togglePlayback,
 } from "@/lib/playback-bridge";
 import { getSongArtistLine, getSongDisplayTitle } from "@/lib/song-firestore";
+import { contentCardGridClassName } from "@/lib/responsive-classes";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 
 type FirebaseSongCardProps = {
@@ -94,8 +95,6 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   song,
   className,
 }: FirebaseSongCardProps) {
-  const { playSong } = usePlaySong();
-  const { ensureAuth } = useAuthGuard();
   const [queue] = useQueue();
   const [currentIndex] = useCurrentSongIndex();
 
@@ -112,14 +111,6 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   const songIndex = queue.findIndex((item) => item.id === song.id);
   const isCurrentSong = songIndex === currentIndex && songIndex !== -1;
 
-  function handleCoverPlay(event: React.MouseEvent) {
-    if (!hasAudio) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (!ensureAuth()) return;
-    playSong(song);
-  }
-
   return (
     <article
       className={cn(
@@ -132,47 +123,30 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
       )}
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted/15">
-        {hasAudio ?
-          <button
-            type="button"
-            aria-label={`Play ${linkLabel}`}
-            onClick={handleCoverPlay}
-            className="block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-          >
-            <ImageWithFallback
-              src={coverUrl}
-              fallback={DEFAULT_SONG_COVER}
-              width={320}
-              height={320}
-              sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
-              alt=""
-              aria-hidden
-              className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
-            />
-          </button>
-        : <ProtectedContentLink
-            href={songHref}
-            aria-label={linkLabel}
-            className="block size-full focus-visible:outline-none"
-          >
-            <ImageWithFallback
-              src={coverUrl}
-              fallback={DEFAULT_SONG_COVER}
-              width={320}
-              height={320}
-              sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
-              alt=""
-              aria-hidden
-              className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
-            />
-          </ProtectedContentLink>
-        }
+        <ProtectedContentLink
+          href={songHref}
+          aria-label={linkLabel}
+          className="block size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        >
+          <ImageWithFallback
+            src={coverUrl}
+            fallback={DEFAULT_SONG_COVER}
+            width={320}
+            height={320}
+            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 200px"
+            alt=""
+            aria-hidden
+            className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
+          />
+        </ProtectedContentLink>
 
-        <SongCoverPlayControl
-          song={song}
-          displayTitle={displayTitle}
-          isCurrentSong={isCurrentSong}
-        />
+        {hasAudio ?
+          <SongCoverPlayControl
+            song={song}
+            displayTitle={displayTitle}
+            isCurrentSong={isCurrentSong}
+          />
+        : null}
 
         <FavoriteButton
           itemType="song"
@@ -200,6 +174,9 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
   );
 });
 
-/** Spotify-style responsive album grid */
-export const songsAlbumGridClassName =
-  "grid w-full grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+/** Dense album grid — Songs page & home Songs section (5 per row on desktop). */
+export const songsPageGridClassName =
+  "grid w-full grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5";
+
+/** Default album grid for favorites, search, etc. */
+export const songsAlbumGridClassName = contentCardGridClassName;

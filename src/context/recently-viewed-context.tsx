@@ -8,13 +8,17 @@ import type {
 } from "@/types/firebase-recently-viewed";
 
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
-import { recordRecentlyViewed } from "@/lib/recently-viewed-mutations";
+import {
+  clearRecentlyViewedHistory,
+  recordRecentlyViewed,
+} from "@/lib/recently-viewed-mutations";
 import { subscribeToUserRecentlyViewed } from "@/lib/recently-viewed-queries";
 
 type RecentlyViewedContextValue = {
   recentlyViewed: FirebaseRecentlyViewed[];
   loading: boolean;
   recordView: (itemType: RecentlyViewedItemType, itemId: string) => Promise<void>;
+  clearHistory: () => Promise<void>;
 };
 
 const RecentlyViewedContext =
@@ -59,13 +63,19 @@ export function RecentlyViewedProvider({ children }: React.PropsWithChildren) {
     [user?.uid]
   );
 
+  const clearHistory = React.useCallback(async () => {
+    if (!user?.uid) return;
+    await clearRecentlyViewedHistory(user.uid);
+  }, [user?.uid]);
+
   const value = React.useMemo(
     () => ({
       recentlyViewed,
       loading,
       recordView,
+      clearHistory,
     }),
-    [recentlyViewed, loading, recordView]
+    [recentlyViewed, loading, recordView, clearHistory]
   );
 
   return (

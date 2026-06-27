@@ -32,7 +32,7 @@ export type PageMetadataOptions = {
   imageAlt?: string;
   imageWidth?: number;
   imageHeight?: number;
-  type?: "website" | "article" | "music.song" | "event";
+  type?: "website" | "article" | "music.song";
   noIndex?: boolean;
   /** When true, use `/api/og` even if a default image exists. */
   useDynamicOg?: boolean;

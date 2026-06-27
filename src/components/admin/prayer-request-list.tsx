@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import {
   deletePrayerRequest,
   updatePrayerRequestStatus,
@@ -61,6 +62,7 @@ function StatusBadge({ status }: { status: PrayerRequestStatus }) {
 }
 
 function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
+  const { user } = useFirebaseAuth();
   const [filter, setFilter] = useState<StatusFilter>("pending");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -80,11 +82,13 @@ function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
     setUpdatingId(request.id);
     try {
       await updatePrayerRequestStatus(request.id, status);
+      const idToken = user ? await user.getIdToken() : undefined;
       await notifyIfPrayerApproved({
         contentId: request.id,
         contentTitle: request.title,
         previousStatus: request.status,
         newStatus: status,
+        idToken,
       });
       toast.success(
         status === "approved"

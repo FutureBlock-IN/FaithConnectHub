@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { ChurchSelector } from "@/components/church/church-selector";
 import { siteConfig } from "@/config/site";
-import { NavbarSearchSection } from "../search/navbar-search-section";
 import { AuthNav } from "../site-header/auth-nav";
 import { DesktopPrimaryNav } from "../site-header/header-nav";
 import { MobileHeader } from "../site-header/mobile-header";
@@ -48,9 +47,6 @@ export async function Navbar() {
         {/* Spacer pushes everything right */}
         <div className="flex-1" />
 
-        {/* Search */}
-        <NavbarSearchSection className="w-[200px] shrink-0 md:w-[240px] lg:w-[300px]" />
-
         <ChurchSelector className="ml-2 hidden lg:flex" />
 
         {/* Auth — hard right */}
@@ -63,15 +59,6 @@ export async function Navbar() {
       <div className="flex flex-col md:hidden">
         {/* Row 1 — hamburger / brand / notifications + avatar */}
         <MobileHeader />
-
-        {/* Row 2 — full-width search */}
-        <div className="border-t border-border/40 px-3 pb-2.5 pt-2">
-          <NavbarSearchSection
-            className="h-11 w-full"
-            placeholder="Search songs, sermons, articles, events..."
-            enableShortcut={false}
-          />
-        </div>
       </div>
     </header>
   );

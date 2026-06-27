@@ -3,11 +3,16 @@
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
-import { PrayerLikeButton } from "@/components/prayer/prayer-like-button";
+import {
+  PrayerAnsweredBadge,
+  PrayerAnsweredButton,
+} from "@/components/prayer/prayer-answered-button";
+import { PrayButton } from "@/components/prayer/pray-button";
 import {
   formatPrayerDate,
   getPrayerRequestDisplayName,
 } from "@/lib/prayer-request-firestore";
+import { getPrayerCategoryLabel } from "@/lib/prayer-request-validation";
 import { cn } from "@/lib/utils";
 
 type PrayerWallCardProps = {
@@ -24,6 +29,7 @@ export function PrayerWallCard({
 }: PrayerWallCardProps) {
   const detailHref = `/prayer-requests/${encodeURIComponent(request.id)}`;
   const displayName = getPrayerRequestDisplayName(request);
+  const categoryLabel = getPrayerCategoryLabel(request.category);
 
   const bodyClassName =
     "flex flex-1 flex-col gap-2.5 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
@@ -39,6 +45,14 @@ export function PrayerWallCard({
     >
       {linkToDetail ?
         <ProtectedContentLink href={detailHref} className={bodyClassName}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              {categoryLabel}
+            </span>
+            {request.isAnswered ?
+              <PrayerAnsweredBadge className="text-[10px]" />
+            : null}
+          </div>
           <h3 className="line-clamp-2 font-heading text-sm font-bold leading-snug text-foreground sm:text-base">
             {request.title}
           </h3>
@@ -47,6 +61,14 @@ export function PrayerWallCard({
           </p>
         </ProtectedContentLink>
       : <div className={bodyClassName}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              {categoryLabel}
+            </span>
+            {request.isAnswered ?
+              <PrayerAnsweredBadge className="text-[10px]" />
+            : null}
+          </div>
           <h3 className="line-clamp-2 font-heading text-sm font-bold leading-snug text-foreground sm:text-base">
             {request.title}
           </h3>
@@ -56,8 +78,7 @@ export function PrayerWallCard({
         </div>
       }
 
-      {/* Footer */}
-      <div className="flex items-center justify-between border-t border-border/30 py-1 pl-4 pr-1">
+      <div className="flex flex-col gap-2 border-t border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         {linkToDetail ?
           <ProtectedContentLink
             href={detailHref}
@@ -70,14 +91,16 @@ export function PrayerWallCard({
           </div>
         }
 
-        {/* Heart button — stop propagation prevents navigating */}
         <div
+          className="flex shrink-0 flex-wrap items-center gap-2"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.preventDefault()}
         >
-          <PrayerLikeButton
+          <PrayerAnsweredButton request={request} />
+          <PrayButton
             requestId={request.id}
             initialCount={request.prayerCount}
+            compact
           />
         </div>
       </div>

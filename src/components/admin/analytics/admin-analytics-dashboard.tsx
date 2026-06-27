@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { ChurchSelector } from "@/components/church/church-selector";
+import { adminSectionClass } from "@/lib/responsive-classes";
 import {
   AnalyticsDonationsChart,
   AnalyticsContentGrowthChart,
@@ -86,7 +87,7 @@ export function AdminAnalyticsDashboard() {
     MULTI_CHURCH_ENABLED && !isSuperAdmin && !adminChurchId;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+    <div className={adminSectionClass}>
       <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
         <div className="h-1 w-full bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
         <div className="flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
@@ -118,7 +119,7 @@ export function AdminAnalyticsDashboard() {
               href="/admin-worship-panel"
               className="rounded-full border border-border/60 px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
             >
-              Worship Admin
+              Dashboard
             </Link>
           </div>
         </div>

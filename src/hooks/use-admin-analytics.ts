@@ -164,6 +164,10 @@ export type AdminAnalyticsState = {
 
   recentDonations: FirebaseDonation[];
 
+  recentPrayerRequests: FirebasePrayerRequest[];
+
+  recentEvents: FirebaseEvent[];
+
   monthlyDonations: MonthlyDonationPoint[];
 
   contentGrowth: ContentGrowthPoint[];
@@ -1208,6 +1212,16 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
 
 
+  const recentPrayerRequests = useMemo(
+    () => [...prayerRequests].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8),
+    [prayerRequests]
+  );
+
+  const recentEvents = useMemo(
+    () => [...events].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8),
+    [events]
+  );
+
   const scopeLabel = !MULTI_CHURCH_ENABLED
 
     ? "Platform-wide"
@@ -1259,6 +1273,10 @@ export function useAdminAnalytics(): AdminAnalyticsState {
     recentUsers,
 
     recentDonations,
+
+    recentPrayerRequests,
+
+    recentEvents,
 
     monthlyDonations,
 

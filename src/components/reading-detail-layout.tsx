@@ -7,6 +7,7 @@ import { ImageWithFallback } from "@/components/image-with-fallback";
 import { ReadingProse } from "@/components/reading-prose";
 import { Badge } from "@/components/ui/badge";
 import { DEFAULT_SONG_COVER } from "@/config/site";
+import { pageDetailClass, typePageTitleClass } from "@/lib/responsive-classes";
 
 type ReadingDetailLayoutProps = {
   coverUrl: string;
@@ -42,7 +43,7 @@ export function ReadingDetailLayout({
   const authorName = author?.trim();
 
   return (
-    <article className="mx-auto w-full max-w-4xl space-y-6">
+    <article className={`${pageDetailClass} space-y-6`}>
       <div className="flex items-center justify-between gap-4 pt-1 sm:pt-0">
         <BackButton />
         {headerAction}
@@ -63,7 +64,7 @@ export function ReadingDetailLayout({
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-3 text-left">
-            <h1 className="font-sans text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl md:text-[2rem] lg:text-[2.5rem]">
+            <h1 className={typePageTitleClass}>
               {title}
             </h1>
 

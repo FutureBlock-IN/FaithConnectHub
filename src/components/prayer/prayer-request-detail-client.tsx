@@ -5,13 +5,20 @@ import { ArrowLeft, CalendarDays, Loader2, UserRound } from "lucide-react";
 
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 
+import {
+  PrayerAnsweredBadge,
+  PrayerAnsweredButton,
+} from "@/components/prayer/prayer-answered-button";
 import { PrayerCountStat } from "@/components/prayer/prayer-count-stat";
+import { PrayButton } from "@/components/prayer/pray-button";
 import { SharePrayerRequestButton } from "@/components/prayer/share-prayer-request-button";
 import { usePrayerRequest } from "@/hooks/use-prayer-request";
 import {
   formatPrayerDate,
   getPrayerRequestDisplayName,
 } from "@/lib/prayer-request-firestore";
+import { getPrayerCategoryLabel } from "@/lib/prayer-request-validation";
+import { pageDetailClass, typePageTitleClass } from "@/lib/responsive-classes";
 
 type PrayerRequestDetailClientProps = {
   requestId: string;
@@ -49,14 +56,15 @@ export function PrayerRequestDetailClient({
   }
 
   const displayName = getPrayerRequestDisplayName(request);
+  const categoryLabel = getPrayerCategoryLabel(request.category);
 
   return (
-    <article className="mx-auto w-full max-w-3xl space-y-6 pb-10 pt-2">
+    <article className={`${pageDetailClass} space-y-6 pt-2`}>
       <Link
         href="/prayer-requests"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="size-3.5" />
+        <ArrowLeft className="size-3.5" aria-hidden />
         Back to Prayer Requests
       </Link>
 
@@ -64,7 +72,16 @@ export function PrayerRequestDetailClient({
         <div className="space-y-5 p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-4">
-              <h1 className="font-heading text-2xl font-bold leading-tight text-foreground sm:text-3xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  {categoryLabel}
+                </span>
+                {request.isAnswered ?
+                  <PrayerAnsweredBadge />
+                : null}
+              </div>
+
+              <h1 className={typePageTitleClass}>
                 {request.title}
               </h1>
 
@@ -93,6 +110,14 @@ export function PrayerRequestDetailClient({
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 sm:text-base">
               {request.request}
             </p>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border/40 pt-5 sm:flex-row sm:flex-wrap sm:items-center">
+            <PrayButton
+              requestId={request.id}
+              initialCount={request.prayerCount}
+            />
+            <PrayerAnsweredButton request={request} />
           </div>
         </div>
       </div>

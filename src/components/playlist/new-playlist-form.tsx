@@ -62,7 +62,7 @@ export function NewPlaylistForm({ children }: NewPlaylistFormProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
 
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Playlist</DialogTitle>
           <DialogDescription>

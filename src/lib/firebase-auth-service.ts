@@ -14,6 +14,9 @@ import { app, db } from "./firebase";
 
 export const firebaseAuth = getAuth(app);
 
+import type { EmailNotificationPreferences } from "@/lib/email/types";
+import { normalizeEmailPreferences } from "@/lib/email/preferences";
+
 export type UserRole = "user" | "admin";
 
 export type ChurchRole = "member" | "admin";
@@ -26,6 +29,7 @@ export type FirestoreUser = {
   churchId?: string;
   churchRole?: ChurchRole;
   managedChurchIds?: string[];
+  emailPreferences?: EmailNotificationPreferences;
   createdAt: unknown;
 };
 
@@ -39,6 +43,9 @@ function mapFirestoreUserData(data: Record<string, unknown>): FirestoreUser {
     churchRole: data.churchRole as ChurchRole | undefined,
     managedChurchIds: Array.isArray(data.managedChurchIds)
       ? data.managedChurchIds.map(String)
+      : undefined,
+    emailPreferences: data.emailPreferences
+      ? normalizeEmailPreferences(data.emailPreferences)
       : undefined,
     createdAt: data.createdAt,
   };

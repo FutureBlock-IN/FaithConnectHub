@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
 import { DonationsListClient } from "@/components/donations/donations-list-client";
+import { DonationsAdminBar } from "@/components/admin/inline/donations-admin-bar";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getActiveDonationCampaignsCached } from "@/lib/cached-donation-data";
+import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const revalidate = 60;
@@ -21,19 +23,22 @@ export default async function DonationsPage() {
 
   return (
     <section
-      className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8"
+      className={pageContentClass}
       aria-labelledby="donations-heading"
     >
-      <header className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
-          Give
-        </p>
-        <h1 id="donations-heading" className="font-heading text-2xl font-bold sm:text-3xl">
-          Donations
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Support active ministry campaigns with secure, transparent giving.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
+            Give
+          </p>
+          <h1 id="donations-heading" className={typePageTitleClass}>
+            Donations
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Support active ministry campaigns with secure, transparent giving.
+          </p>
+        </div>
+        <DonationsAdminBar churchId={churchId} />
       </header>
 
       <DonationsListClient initialCampaigns={campaigns} />

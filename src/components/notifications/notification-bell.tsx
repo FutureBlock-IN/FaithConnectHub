@@ -110,15 +110,19 @@ export function NotificationBell({ userId }: NotificationBellProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="relative size-9 shrink-0"
+          className="size-9 shrink-0"
           aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
         >
-          <Bell className="size-4" />
-          {unreadCount > 0 ? (
-            <Badge className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px]">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </Badge>
-          ) : null}
+          <span className="relative inline-flex">
+            <Bell className="size-4" />
+            {unreadCount > 0 ?
+              <Badge
+                className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-background px-1 text-[10px] font-semibold leading-none tabular-nums"
+              >
+                {unreadCount > 99 ? "99+" : unreadCount > 9 ? "9+" : unreadCount}
+              </Badge>
+            : null}
+          </span>
         </Button>
       </DropdownMenuTrigger>
 

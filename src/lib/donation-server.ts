@@ -13,6 +13,7 @@ import {
   normalizeDonationCampaignFromFirestore,
   normalizeDonationFromFirestore,
 } from "./donation-firestore";
+import { triggerDonationCompletedEmails } from "./email/triggers";
 import { getAdminDb } from "./firebase-admin";
 
 export type PendingDonationInput = {
@@ -114,6 +115,8 @@ export async function completeDonationPayment(input: {
     }
   }
 
+  let newlyCompleted = false;
+
   await adminDb.runTransaction(async (transaction) => {
     const donationRef = adminDb.collection(DONATIONS_COLLECTION).doc(input.donationId);
     const campaignRef = adminDb
@@ -157,8 +160,14 @@ export async function completeDonationPayment(input: {
         currentAmount: campaign.currentAmount + donation.amount,
         updatedAt: FieldValue.serverTimestamp(),
       });
+
+      newlyCompleted = true;
     }
   });
+
+  if (newlyCompleted) {
+    void triggerDonationCompletedEmails(input.donationId);
+  }
 }
 
 export async function getDonationForSuccessPage(

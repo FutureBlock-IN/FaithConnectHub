@@ -49,24 +49,29 @@ export function EventCard({ event, className }: EventCardProps) {
           {event.title}
         </h3>
 
-        <div className="mt-auto space-y-1.5 text-xs text-muted-foreground">
-          <p className="inline-flex items-center gap-1.5">
-            <CalendarDays className="size-3.5 shrink-0" aria-hidden />
-            {formatEventDate(event.eventDate)}
-          </p>
+        <ul className="mt-auto flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-5 sm:gap-y-2">
+          <li className="flex min-w-0 items-start gap-1.5">
+            <CalendarDays
+              className="mt-0.5 size-3.5 shrink-0"
+              aria-hidden
+            />
+            <span className="min-w-0 break-words">
+              {formatEventDate(event.eventDate)}
+            </span>
+          </li>
           {event.eventTime ?
-            <p className="inline-flex items-center gap-1.5">
-              <Clock3 className="size-3.5 shrink-0" aria-hidden />
-              {event.eventTime}
-            </p>
+            <li className="flex min-w-0 items-start gap-1.5">
+              <Clock3 className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span className="min-w-0 break-words">{event.eventTime}</span>
+            </li>
           : null}
           {event.location ?
-            <p className="inline-flex items-center gap-1.5">
-              <MapPin className="size-3.5 shrink-0" aria-hidden />
-              <span className="line-clamp-1">{event.location}</span>
-            </p>
+            <li className="flex min-w-0 items-start gap-1.5 sm:min-w-[8rem] sm:flex-1 sm:basis-40">
+              <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span className="min-w-0 break-words">{event.location}</span>
+            </li>
           : null}
-        </div>
+        </ul>
       </div>
     </Link>
   );

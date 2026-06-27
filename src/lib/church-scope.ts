@@ -14,6 +14,15 @@ export function getLegacyDefaultChurchId(): string {
   );
 }
 
+/** Church id stored on new content when multi-church is off or scope is missing. */
+export function resolveChurchIdForWrite(
+  churchId: string | null | undefined
+): string {
+  const trimmed = String(churchId ?? "").trim();
+  if (trimmed) return trimmed;
+  return getLegacyDefaultChurchId() || "default";
+}
+
 export function resolveDocumentChurchId(
   data: Record<string, unknown>
 ): string {
