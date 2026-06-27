@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { PrayerRequestForm } from "@/components/prayer/prayer-request-form";
 import { siteConfig } from "@/config/site";
+import { pageNarrowClass } from "@/lib/responsive-classes";
 
 export const metadata = {
   title: "Submit Prayer Request",
@@ -11,12 +12,12 @@ export const metadata = {
 
 export default function SubmitPrayerRequestPage() {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 pb-10 pt-2">
+    <div className={`${pageNarrowClass} space-y-6 pt-2`}>
       <Link
         href="/prayer-requests"
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex min-h-touch items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="size-3.5" />
+        <ArrowLeft className="size-3.5" aria-hidden />
         Back to Prayer Requests
       </Link>
 

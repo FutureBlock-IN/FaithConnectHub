@@ -1,17 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Loader2 } from "lucide-react";
+import { ArrowRight, CalendarDays } from "lucide-react";
+
+import type { FirebaseEvent } from "@/types/firebase-event";
 
 import { EventCard } from "@/components/events/event-card";
+import { WorshipGridSkeleton } from "@/components/skeletons/worship-grid-skeleton";
 import { Button } from "@/components/ui/button";
 import { usePublishedEvents } from "@/hooks/use-published-events";
+import { contentCardGridClassName } from "@/lib/responsive-classes";
 
-export function DashboardUpcomingEventsSection() {
-  const { events, loading } = usePublishedEvents([], {
+type DashboardUpcomingEventsSectionProps = {
+  initialEvents?: FirebaseEvent[];
+};
+
+export function DashboardUpcomingEventsSection({
+  initialEvents = [],
+}: DashboardUpcomingEventsSectionProps) {
+  const { events, loading } = usePublishedEvents(initialEvents, {
     maxItems: 3,
     upcomingOnly: true,
   });
+
+  const showSkeleton = loading && events.length === 0;
 
   return (
     <section className="space-y-4">
@@ -35,10 +47,8 @@ export function DashboardUpcomingEventsSection() {
         </Button>
       </div>
 
-      {loading ?
-        <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/50 py-14">
-          <Loader2 className="size-5 animate-spin text-primary/60" />
-        </div>
+      {showSkeleton ?
+        <WorshipGridSkeleton count={3} />
       : events.length === 0 ?
         <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
           <CalendarDays className="mx-auto size-7 text-muted-foreground/60" />
@@ -47,7 +57,7 @@ export function DashboardUpcomingEventsSection() {
             Check back soon for worship and community gatherings.
           </p>
         </div>
-      : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      : <div className={contentCardGridClassName}>
           {events.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}

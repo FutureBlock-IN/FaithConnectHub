@@ -19,6 +19,7 @@ import { db } from "@/lib/firebase";
 import {
   normalizePrayerRequestFromFirestore,
   PRAYER_REQUESTS_COLLECTION,
+  isPublicPrayerRequest,
 } from "@/lib/prayer-request-firestore";
 
 export function useApprovedPrayerRequests(
@@ -47,12 +48,14 @@ export function useApprovedPrayerRequests(
       prayersQuery,
       (snapshot) => {
         setRequests(
-          snapshot.docs.map((docSnap) =>
-            normalizePrayerRequestFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
+          snapshot.docs
+            .map((docSnap) =>
+              normalizePrayerRequestFromFirestore(
+                docSnap.id,
+                docSnap.data() as Record<string, unknown>
+              )
             )
-          )
+            .filter(isPublicPrayerRequest)
         );
         setSyncing(false);
       },

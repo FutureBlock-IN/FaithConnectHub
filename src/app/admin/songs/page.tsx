@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function AdminSongsPage() {
-  redirect("/admin-worship-panel?tab=songs");
+export default function AdminSongsRedirectPage() {
+  redirect("/admin-worship-panel/songs");
 }

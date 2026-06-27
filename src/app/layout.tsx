@@ -17,12 +17,17 @@ import { getActiveChurchesCached } from "@/lib/cached-church-data";
 import { getActiveChurchIdFromCookies } from "@/lib/church-server";
 import * as fonts from "@/lib/fonts";
 import { absoluteUrl, cn } from "@/lib/utils";
+import { Noto_Sans } from "next/font/google";
+
+const notoSans = Noto_Sans({subsets:['latin'],variable:'--font-sans'});
+
 
 type RootLayoutProps = {
   children: React.ReactNode;
+  modal: React.ReactNode;
 };
 
-export default async function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children, modal }: RootLayoutProps) {
   const cookieStore = await cookies();
   const themeConfig = cookieStore.get("theme-config");
 
@@ -37,7 +42,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 
   return (
     <React.StrictMode>
-      <html lang="en" suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning className={cn("font-sans", notoSans.variable)}>
         <body
           className={cn(
             Object.values(fonts).map((font) => font.variable),
@@ -56,6 +61,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           >
             <SiteJsonLd />
             {children}
+            {modal}
           </Providers>
 
           <TailwindIndicator />

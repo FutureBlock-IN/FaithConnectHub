@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import {
   FirebaseSongCard,
-  songsAlbumGridClassName,
+  songsPageGridClassName,
 } from "@/components/music/firebase-song-card";
 import { TabEmptyState } from "@/components/worship/songs-tab-content";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtimeSongs } from "@/hooks/use-worship-realtime";
 import { filterPublishedSongs, sortSongsByLatest } from "@/lib/song-firestore";
 
@@ -20,13 +21,13 @@ type HomeSongsSectionProps = {
 };
 
 export function HomeSongsSection({ initialSongs }: HomeSongsSectionProps) {
-  const liveSongs = useRealtimeSongs(initialSongs);
+  const { data: liveSongs, syncing } = useRealtimeSongs(initialSongs);
   const songs = useMemo(
     () => sortSongsByLatest(filterPublishedSongs(liveSongs)),
     [liveSongs]
   );
 
-  const loading = songs.length === 0 && initialSongs.length === 0;
+  const loading = syncing && songs.length === 0;
 
   return (
     <section className="space-y-5">
@@ -46,12 +47,18 @@ export function HomeSongsSection({ initialSongs }: HomeSongsSectionProps) {
       </div>
 
       {loading ?
-        <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/50 py-16">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <div className={songsPageGridClassName}>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="space-y-3 rounded-lg p-2.5">
+              <Skeleton className="aspect-square w-full rounded-md" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
         </div>
       : songs.length === 0 ?
         <TabEmptyState message="No songs available yet. Check back soon." />
-      : <div className={songsAlbumGridClassName}>
+      : <div className={songsPageGridClassName}>
           {songs.map((song) => (
             <FirebaseSongCard key={song.id} song={song} />
           ))}

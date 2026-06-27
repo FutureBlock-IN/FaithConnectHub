@@ -1,13 +1,24 @@
 import React from "react";
+import { cookies } from "next/headers";
 
-import { RootShell } from "@/components/root-shell";
-import { Navbar } from "@/components/site-header/navbar";
+import { AppSidebar } from "@/components/app-sidebar/app-sidebar";
+import { AppSiteHeader } from "@/components/app-sidebar/app-site-header";
+import { pageShellClass } from "@/lib/responsive-classes";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
-export default function Layout({ children }: React.PropsWithChildren) {
+export default async function Layout({ children }: React.PropsWithChildren) {
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
   return (
-    <React.Fragment>
-      <Navbar />
-      <RootShell>{children}</RootShell>
-    </React.Fragment>
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <AppSidebar />
+      <SidebarInset className="min-w-0">
+        <AppSiteHeader />
+        <div className={pageShellClass}>
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

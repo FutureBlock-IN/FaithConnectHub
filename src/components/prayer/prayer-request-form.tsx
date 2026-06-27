@@ -18,6 +18,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
@@ -26,6 +33,7 @@ import { getLegacyDefaultChurchId } from "@/lib/church-scope";
 import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { createPrayerRequest } from "@/lib/prayer-request-mutations";
 import {
+  PRAYER_CATEGORIES,
   PRAYER_REQUEST_MAX,
   PRAYER_TITLE_MAX,
   prayerRequestSubmitSchema,
@@ -33,7 +41,7 @@ import {
 } from "@/lib/prayer-request-validation";
 
 const SUCCESS_MESSAGE =
-  "Thank you for sharing your prayer request. It has been submitted for review and will appear once approved.";
+  "Thank you for sharing your prayer request. It has been submitted for review and will appear on the community wall once approved.";
 
 function getDefaultName(
   profile: { firstName?: string; lastName?: string } | null,
@@ -48,13 +56,17 @@ function getDefaultName(
 
 type PrayerRequestFormProps = {
   variant?: "page" | "dialog";
+  onSuccess?: () => void;
+  onCancel?: () => void;
 };
 
 export function PrayerRequestForm({
   variant = "page",
+  onSuccess,
+  onCancel,
 }: PrayerRequestFormProps) {
   const router = useRouter();
-  const { authUser, profile, loading } = useFirebaseAuth();
+  const { authUser, profile, loading, user } = useFirebaseAuth();
   const { churchId, isLoading: churchLoading } = useActiveChurchScope();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -66,7 +78,9 @@ export function PrayerRequestForm({
       email: "",
       title: "",
       request: "",
+      category: "general",
       isAnonymous: false,
+      shareWithCommunity: true,
     },
   });
 
@@ -96,11 +110,12 @@ export function PrayerRequestForm({
     setSubmitError(null);
 
     try {
-      const resolvedName = values.isAnonymous
-        ? ""
+      const resolvedName =
+        values.isAnonymous ?
+          ""
         : values.name.trim() || getDefaultName(profile, authUser);
 
-      await createPrayerRequest(
+      const prayerId = await createPrayerRequest(
         effectiveChurchId,
         authUser.uid,
         {
@@ -109,7 +124,28 @@ export function PrayerRequestForm({
         },
         { email: authUser.email }
       );
+
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          await fetch("/api/email/prayer-submitted", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              prayerId,
+              prayerTitle: values.title.trim(),
+            }),
+          });
+        } catch {
+          // Email failure must not block submission success
+        }
+      }
+
       setSubmitted(true);
+      onSuccess?.();
     } catch {
       setSubmitError("Unable to submit your prayer request. Please try again.");
     }
@@ -159,6 +195,15 @@ export function PrayerRequestForm({
               Back Home
             </Button>
           </div>
+        : onCancel ?
+          <Button
+            type="button"
+            variant="default"
+            className="mt-2 rounded-full"
+            onClick={onCancel}
+          >
+            Done
+          </Button>
         : null}
       </div>
     );
@@ -188,6 +233,7 @@ export function PrayerRequestForm({
                 <Input
                   placeholder="Brief title for your request"
                   maxLength={PRAYER_TITLE_MAX}
+                  autoComplete="off"
                   {...field}
                 />
               </FormControl>
@@ -204,12 +250,37 @@ export function PrayerRequestForm({
               <FormLabel>Prayer Request</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Share your prayer need..."
+                  placeholder="Share your prayer need with the community..."
                   rows={6}
                   maxLength={PRAYER_REQUEST_MAX}
                   {...field}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {PRAYER_CATEGORIES.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -227,10 +298,25 @@ export function PrayerRequestForm({
                 </FormDescription>
               </div>
               <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="shareWithCommunity"
+          render={({ field }) => (
+            <FormItem className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 p-4">
+              <div className="space-y-1">
+                <FormLabel>Share with community</FormLabel>
+                <FormDescription>
+                  When approved, your request can appear on the public prayer wall.
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}
@@ -244,7 +330,7 @@ export function PrayerRequestForm({
               <FormItem>
                 <FormLabel>Name (optional)</FormLabel>
                 <FormControl>
-                  <Input placeholder="Your name" {...field} />
+                  <Input placeholder="Your name" autoComplete="name" {...field} />
                 </FormControl>
                 <FormDescription>
                   Pre-filled from your profile when available.
@@ -256,19 +342,34 @@ export function PrayerRequestForm({
         : null}
 
         {submitError ?
-          <p className="text-sm text-destructive">{submitError}</p>
+          <p className="text-sm text-destructive" role="alert">
+            {submitError}
+          </p>
         : null}
 
-        <Button
-          type="submit"
-          disabled={form.formState.isSubmitting}
-          className="w-full rounded-full sm:w-auto"
-        >
-          {form.formState.isSubmitting ?
-            <Loader2 className="mr-2 size-4 animate-spin" />
-          : <Send className="mr-2 size-4" />}
-          Submit Prayer Request
-        </Button>
+        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+          {variant === "dialog" && onCancel ?
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              onClick={onCancel}
+              disabled={form.formState.isSubmitting}
+            >
+              Cancel
+            </Button>
+          : null}
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting}
+            className="rounded-full sm:min-w-[160px]"
+          >
+            {form.formState.isSubmitting ?
+              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+            : <Send className="mr-2 size-4" aria-hidden />}
+            Submit Prayer Request
+          </Button>
+        </div>
       </form>
     </Form>
   );

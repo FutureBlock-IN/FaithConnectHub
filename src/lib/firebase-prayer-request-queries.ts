@@ -27,6 +27,7 @@ import { filterRecordsByChurch } from "./church-scope";
 import {
   normalizePrayerRequestFromFirestore,
   PRAYER_REQUESTS_COLLECTION,
+  isPublicPrayerRequest,
 } from "./prayer-request-firestore";
 
 function normalizePrayerRequest(
@@ -214,7 +215,9 @@ export async function getPrayerRequests(
 export async function getApprovedPrayerRequests(
   churchId: string
 ): Promise<FirebasePrayerRequest[]> {
-  return filterRecordsByChurch(await fetchApprovedPrayerRequests(), churchId);
+  return filterRecordsByChurch(await fetchApprovedPrayerRequests(), churchId).filter(
+    isPublicPrayerRequest
+  );
 }
 
 export async function getLatestApprovedPrayerRequests(

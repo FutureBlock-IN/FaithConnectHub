@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
+import { pageProseClass, typePageTitleClass } from "@/lib/responsive-classes";
 
 export type LegalSection = {
   title: string;
@@ -33,8 +34,8 @@ export function LegalDocumentPage({
   sections,
 }: LegalDocumentPageProps) {
   return (
-    <div className="w-full px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto w-full max-w-3xl">
+    <div className={`${pageProseClass} py-4 sm:py-6`}>
+      <div className="w-full">
         <header className="mb-10 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
           <div className="h-1.5 w-full bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
 
@@ -47,7 +48,7 @@ export function LegalDocumentPage({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
                   Legal Document
                 </p>
-                <h1 className="font-heading text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
+                <h1 className={typePageTitleClass}>
                   {title}
                 </h1>
                 <p className="text-sm text-muted-foreground">{siteConfig.name}</p>

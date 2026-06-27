@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
 import { EventsListClient } from "@/components/events/events-list-client";
+import { EventsAdminBar } from "@/components/admin/inline/events-admin-bar";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getPublishedEventsGroupedCached } from "@/lib/cached-event-data";
+import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const revalidate = 60;
@@ -21,20 +23,23 @@ export default async function EventsPage() {
 
   return (
     <section
-      className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8"
+      className={pageContentClass}
       aria-labelledby="events-heading"
     >
-      <header className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
-          Ministry
-        </p>
-        <h1 id="events-heading" className="font-heading text-2xl font-bold sm:text-3xl">
-          Events
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Discover upcoming worship services, fellowship gatherings, and special
-          ministry events.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
+            Ministry
+          </p>
+          <h1 id="events-heading" className={typePageTitleClass}>
+            Events
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Discover upcoming worship services, fellowship gatherings, and special
+            ministry events.
+          </p>
+        </div>
+        <EventsAdminBar churchId={churchId} />
       </header>
 
       <EventsListClient initialUpcoming={upcoming} initialPast={past} />

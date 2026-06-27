@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
 import type { FirebaseFavorite } from "@/types/firebase-favorite";
@@ -9,7 +8,7 @@ import type { FirebaseSermon } from "@/types/firebase-sermon";
 import type { FirebaseSong } from "@/types/firebase-song";
 
 import { normalizeArticleFromFirestore } from "@/lib/article-firestore";
-import { db } from "@/lib/firebase";
+import { getFirestoreDocsByIds } from "@/lib/firestore-batch-get";
 import { normalizeSermonFromFirestore } from "@/lib/sermon-firestore";
 import { filterPublishedSongs, normalizeSongFromFirestore } from "@/lib/song-firestore";
 
@@ -18,6 +17,7 @@ type ResolvedFavoriteItems = {
   sermons: FirebaseSermon[];
   articles: FirebaseArticle[];
   loading: boolean;
+  error: string | null;
 };
 
 export function useResolvedFavoriteItems(
@@ -27,6 +27,7 @@ export function useResolvedFavoriteItems(
   const [sermons, setSermons] = useState<FirebaseSermon[]>([]);
   const [articles, setArticles] = useState<FirebaseArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const favoriteKey = useMemo(
     () =>
@@ -45,10 +46,12 @@ export function useResolvedFavoriteItems(
         setSermons([]);
         setArticles([]);
         setLoading(false);
+        setError(null);
         return;
       }
 
       setLoading(true);
+      setError(null);
 
       try {
         const [nextSongs, nextSermons, nextArticles] = await Promise.all([
@@ -62,6 +65,10 @@ export function useResolvedFavoriteItems(
         setSongs(nextSongs);
         setSermons(nextSermons);
         setArticles(nextArticles);
+      } catch {
+        if (!cancelled) {
+          setError("Unable to load favorites. Please try again.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -74,7 +81,7 @@ export function useResolvedFavoriteItems(
     };
   }, [favoriteKey, favorites]);
 
-  return { songs, sermons, articles, loading };
+  return { songs, sermons, articles, loading, error };
 }
 
 async function loadSongs(favorites: FirebaseFavorite[]): Promise<FirebaseSong[]> {
@@ -82,20 +89,8 @@ async function loadSongs(favorites: FirebaseFavorite[]): Promise<FirebaseSong[]>
     .filter((favorite) => favorite.itemType === "song")
     .map((favorite) => favorite.itemId);
 
-  const songs = await Promise.all(
-    ids.map(async (id) => {
-      const snapshot = await getDoc(doc(db, "songs", id));
-      if (!snapshot.exists()) return null;
-      return normalizeSongFromFirestore(
-        snapshot.id,
-        snapshot.data() as Record<string, unknown>
-      );
-    })
-  );
-
-  return filterPublishedSongs(
-    songs.filter((song): song is FirebaseSong => song !== null)
-  );
+  const songs = await getFirestoreDocsByIds("songs", ids, normalizeSongFromFirestore);
+  return filterPublishedSongs(songs);
 }
 
 async function loadSermons(
@@ -105,19 +100,13 @@ async function loadSermons(
     .filter((favorite) => favorite.itemType === "sermon")
     .map((favorite) => favorite.itemId);
 
-  const sermons = await Promise.all(
-    ids.map(async (id) => {
-      const snapshot = await getDoc(doc(db, "sermons", id));
-      if (!snapshot.exists()) return null;
-      const sermon = normalizeSermonFromFirestore(
-        snapshot.id,
-        snapshot.data() as Record<string, unknown>
-      );
-      return sermon.isPublished ? sermon : null;
-    })
+  const sermons = await getFirestoreDocsByIds(
+    "sermons",
+    ids,
+    normalizeSermonFromFirestore
   );
 
-  return sermons.filter((sermon): sermon is FirebaseSermon => sermon !== null);
+  return sermons.filter((sermon) => sermon.isPublished);
 }
 
 async function loadArticles(
@@ -127,19 +116,11 @@ async function loadArticles(
     .filter((favorite) => favorite.itemType === "article")
     .map((favorite) => favorite.itemId);
 
-  const articles = await Promise.all(
-    ids.map(async (id) => {
-      const snapshot = await getDoc(doc(db, "articles", id));
-      if (!snapshot.exists()) return null;
-      const article = normalizeArticleFromFirestore(
-        snapshot.id,
-        snapshot.data() as Record<string, unknown>
-      );
-      return article.isPublished ? article : null;
-    })
+  const articles = await getFirestoreDocsByIds(
+    "articles",
+    ids,
+    normalizeArticleFromFirestore
   );
 
-  return articles.filter(
-    (article): article is FirebaseArticle => article !== null
-  );
+  return articles.filter((article) => article.isPublished);
 }

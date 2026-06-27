@@ -45,7 +45,7 @@ import { Drawer, DrawerContent, DrawerTitle } from "./ui/drawer";
 import { Skeleton } from "./ui/skeleton";
 import { Slider, SliderRange, SliderThumb, SliderTrack } from "./ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { toast } from "./ui/use-toast";
+import { toast } from "sonner";
 
 export function Player() {
   const [queue] = useQueue();
@@ -156,10 +156,7 @@ function usePlayerEngine() {
         });
       } catch {
         loadedSrcRef.current = null;
-        toast({
-          description: "Playback error occurred",
-          variant: "destructive",
-        });
+        toast.error("Playback error occurred");
       }
     }
   }, [queue, streamQuality, currentIndex, isPlayerInit, load, onEndHandler, src]);
@@ -200,14 +197,13 @@ function usePlayerEngine() {
 
     if (queue.length === 1) {
       loop(!looping);
-      toast({
-        description:
-          looping ? "Looping disabled" : "Playing current song on repeat",
-      });
+      toast.success(
+        looping ? "Looping disabled" : "Playing current song on repeat"
+      );
     } else if (!looping && !loopPlaylist) {
       setLoopPlaylist(true);
       loop(false);
-      toast({ description: "Looping playlist" });
+      toast.success("Looping playlist");
     } else if (!looping && loopPlaylist) {
       setLoopPlaylist(false);
       loop(true);
@@ -323,7 +319,7 @@ function PlayerControls() {
     <>
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 border-t border-[#282828] bg-[#121212]",
+          "fixed inset-x-0 bottom-0 z-50 border-t border-[#282828] bg-[#121212] pb-[env(safe-area-inset-bottom,0px)]",
           "animate-in slide-in-from-bottom-full duration-300",
           !engine.isReady && "opacity-95"
         )}

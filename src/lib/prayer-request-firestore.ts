@@ -1,6 +1,7 @@
 import type {
   CreatePrayerRequestInput,
   FirebasePrayerRequest,
+  PrayerRequestCategory,
   PrayerRequestStatus,
 } from "@/types/firebase-prayer-request";
 
@@ -8,6 +9,26 @@ import { resolveDocumentChurchId } from "./church-scope";
 import { toMillis } from "./firebase-utils";
 
 export const PRAYER_REQUESTS_COLLECTION = "prayerRequests";
+export const PRAYER_INTERCESSIONS_COLLECTION = "prayerIntercessions";
+
+const VALID_CATEGORIES: PrayerRequestCategory[] = [
+  "general",
+  "health",
+  "family",
+  "finances",
+  "salvation",
+  "guidance",
+  "thanksgiving",
+  "other",
+];
+
+function normalizeCategory(value: unknown): PrayerRequestCategory {
+  const category = String(value ?? "general").trim().toLowerCase();
+  if (VALID_CATEGORIES.includes(category as PrayerRequestCategory)) {
+    return category as PrayerRequestCategory;
+  }
+  return "general";
+}
 
 const VALID_STATUSES: PrayerRequestStatus[] = [
   "pending",
@@ -39,7 +60,12 @@ export function normalizePrayerRequestFromFirestore(
     email: email || undefined,
     title: String(data.title ?? "").trim(),
     request: String(data.request ?? "").trim(),
+    category: normalizeCategory(data.category),
     isAnonymous: Boolean(data.isAnonymous),
+    shareWithCommunity: data.shareWithCommunity !== false,
+    isAnswered: Boolean(data.isAnswered),
+    answeredAt:
+      data.answeredAt != null ? toMillis(data.answeredAt) : undefined,
     status: normalizeStatus(data.status),
     prayerCount: Number(data.prayerCount ?? 0) || 0,
     createdAt: toMillis(data.createdAt),
@@ -85,14 +111,32 @@ export function buildPrayerRequestCreatePayload(
       });
 
   return {
-    churchId: input.churchId.trim(),
+    churchId: input.churchId.trim() || "default",
     userId: input.userId.trim(),
     name: displayName,
     email: input.email?.trim() || null,
     title: input.title,
     request: input.request,
+    category: input.category,
     isAnonymous: input.isAnonymous,
+    shareWithCommunity: input.shareWithCommunity,
+    isAnswered: false,
+    answeredAt: null,
     status: "pending",
     prayerCount: 0,
   };
+}
+
+export function buildPrayerIntercessionId(
+  requestId: string,
+  userId: string
+): string {
+  return `${requestId}_${userId}`;
+}
+
+/** Approved requests visible on the public community wall. */
+export function isPublicPrayerRequest(
+  request: Pick<FirebasePrayerRequest, "status" | "shareWithCommunity">
+): boolean {
+  return request.status === "approved" && request.shareWithCommunity !== false;
 }

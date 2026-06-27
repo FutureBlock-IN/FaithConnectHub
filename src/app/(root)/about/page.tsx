@@ -20,6 +20,7 @@ import { ImageWithFallback } from "@/components/image-with-fallback";
 import { JsonLd } from "@/components/seo/json-ld";
 import { siteConfig } from "@/config/site";
 import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
+import { typeHeroTitleClass, typeSectionTitleClass } from "@/lib/responsive-classes";
 
 export const metadata = buildPageMetadata({
   title: "About Us",
@@ -129,7 +130,7 @@ const FUTURE_GOALS = [
 
 export default function AboutPage() {
   return (
-    <div className="overflow-hidden">
+    <div className="min-w-0 overflow-x-hidden">
       <JsonLd
         data={buildBreadcrumbJsonLd([
           { name: "Home", path: "/" },
@@ -137,7 +138,7 @@ export default function AboutPage() {
         ])}
       />
       <section
-        className="relative flex flex-col items-center justify-center px-4 py-20 text-center sm:py-28"
+        className="relative flex flex-col items-center justify-center px-3 py-16 text-center sm:px-4 sm:py-20 md:py-28"
         aria-labelledby="about-hero-heading"
       >
         <div
@@ -154,14 +155,14 @@ export default function AboutPage() {
             alt={siteConfig.name}
             width={280}
             height={84}
-            className="h-auto w-[220px] object-contain sm:w-[280px]"
+            className="h-auto w-full max-w-[220px] object-contain sm:max-w-[280px]"
           />
 
           <div className="space-y-4">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary/70">
               Christian Worship & Ministry Platform
             </p>
-            <h1 id="about-hero-heading" className="font-heading text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
+            <h1 id="about-hero-heading" className={typeHeroTitleClass}>
               About {siteConfig.name}
             </h1>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -179,13 +180,13 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-4xl px-4 pb-16 sm:pb-20">
+      <section className="mx-auto max-w-4xl px-3 pb-16 sm:px-4 sm:pb-20">
         <div className="space-y-6">
           <div className="space-y-2 text-center">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Introduction
             </p>
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+            <h2 className={typeSectionTitleClass}>
               A Platform Built for Faith, Worship, and Community
             </h2>
           </div>
@@ -206,13 +207,13 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-muted/30 px-4 py-16 sm:py-20">
-        <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-2">
-          <div className="rounded-2xl border border-border/50 bg-card p-8 shadow-sm">
+      <section className="bg-muted/30 px-3 py-14 sm:px-4 sm:py-20">
+        <div className="mx-auto grid max-w-5xl gap-6 sm:gap-8 md:grid-cols-2">
+          <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Mission
             </p>
-            <h2 className="mt-2 font-heading text-2xl font-bold">Our Mission</h2>
+            <h2 className={`mt-2 ${typeSectionTitleClass}`}>Our Mission</h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
               To strengthen faith, encourage worship, support prayer, and build
               meaningful Christian communities through technology. We seek to equip
@@ -221,11 +222,11 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-border/50 bg-card p-8 shadow-sm">
+          <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Vision
             </p>
-            <h2 className="mt-2 font-heading text-2xl font-bold">Our Vision</h2>
+            <h2 className={`mt-2 ${typeSectionTitleClass}`}>Our Vision</h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
               To become a trusted digital platform where ministries and believers
               connect, learn, worship, pray, and grow together—united by faith in
@@ -264,7 +265,7 @@ export default function AboutPage() {
           <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
             Platform Features
           </p>
-          <h2 className="font-heading text-2xl font-bold sm:text-3xl">Core Features</h2>
+          <h2 className={typeSectionTitleClass}>Core Features</h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
             Everything you need to worship, learn, pray, give, and stay connected—all
             in one ministry-focused platform.
@@ -296,7 +297,7 @@ export default function AboutPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Who We Serve
             </p>
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+            <h2 className={typeSectionTitleClass}>
               Built for the Body of Christ
             </h2>
           </div>
@@ -321,7 +322,7 @@ export default function AboutPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Community Impact
             </p>
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+            <h2 className={typeSectionTitleClass}>
               Strengthening Faith Across Communities
             </h2>
           </div>
@@ -349,7 +350,7 @@ export default function AboutPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Our Purpose
             </p>
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+            <h2 className={typeSectionTitleClass}>
               Why {siteConfig.name} Exists
             </h2>
           </div>
@@ -368,7 +369,7 @@ export default function AboutPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Looking Ahead
             </p>
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">Future Goals</h2>
+            <h2 className={typeSectionTitleClass}>Future Goals</h2>
           </div>
 
           <ul className="space-y-3">
@@ -391,7 +392,7 @@ export default function AboutPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">
               Get Started
             </p>
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+            <h2 className={typeSectionTitleClass}>
               Join the {siteConfig.name} Community
             </h2>
             <p className="mx-auto max-w-md text-sm text-muted-foreground sm:text-base">

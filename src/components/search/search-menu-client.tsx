@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useEventListener } from "@/hooks/use-event-listner";
 import { useIsTyping } from "@/hooks/use-store";
+import { fetchWorshipCatalogAction } from "@/lib/actions/worship-catalog";
 import { getGlobalSearchPlaceholder } from "@/lib/worship-collection";
 import { cn, isMacOs } from "@/lib/utils";
 
@@ -21,13 +23,19 @@ import { WorshipTopItemsClient } from "./firebase-worship-top-items";
 
 const TOP_ITEMS_LIMIT = 12;
 
+const EMPTY_CATALOG: WorshipCatalog = {
+  songs: [],
+  sermons: [],
+  articles: [],
+  events: [],
+};
+
 export type SearchMenuProps = {
   className?: string;
-  catalog: WorshipCatalog;
+  churchId: string;
   placeholder?: string;
   enableShortcut?: boolean;
 };
-
 type SearchMenuTriggerProps = {
   className?: string;
   searchPlaceholder: string;
@@ -50,7 +58,7 @@ function SearchMenuTrigger({
       aria-expanded={false}
       onClick={onOpen}
       className={cn(
-        "flex h-9 w-full min-w-0 max-w-full justify-start gap-2 px-3 shadow-sm sm:h-10",
+        "flex h-11 w-full min-w-0 max-w-full justify-start gap-2 px-3 shadow-sm sm:h-10",
         className
       )}
     >
@@ -64,7 +72,7 @@ function SearchMenuTrigger({
 }
 
 export function SearchMenuClient({
-  catalog,
+  churchId,
   className,
   placeholder,
   enableShortcut = true,
@@ -75,7 +83,9 @@ export function SearchMenuClient({
   const [pendingOpen, setPendingOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-
+  const [catalog, setCatalog] = useState<WorshipCatalog>(EMPTY_CATALOG);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const debouncedQuery = useDebounce(query.trim(), 500);
 
   const [_, setIsTyping] = useIsTyping();
@@ -102,6 +112,25 @@ export function SearchMenuClient({
     setIsOpen(true);
   }
 
+  const loadCatalog = useCallback(async () => {
+    if (catalogLoaded || catalogLoading) return;
+    setCatalogLoading(true);
+    try {
+      const nextCatalog = await fetchWorshipCatalogAction(churchId);
+      setCatalog(nextCatalog);
+      setCatalogLoaded(true);
+    } catch {
+      toast.error("Unable to load search catalog");
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [catalogLoaded, catalogLoading, churchId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void loadCatalog();
+    }
+  }, [isOpen, loadCatalog]);
   useEventListener("keydown", (e: KeyboardEvent) => {
     if (!enableShortcut) return;
     if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -159,18 +188,22 @@ export function SearchMenuClient({
             </div>
 
             <div className="min-h-0 flex-1 overflow-hidden px-4 sm:px-0">
-              <WorshipCatalogProvider catalog={catalog}>
-                {debouncedQuery.length ?
-                  <GlobalSearchResults query={debouncedQuery} />
-                : <WorshipTopItemsClient
-                    songs={catalog.songs.slice(0, TOP_ITEMS_LIMIT)}
-                    sermons={catalog.sermons.slice(0, TOP_ITEMS_LIMIT)}
-                    articles={catalog.articles.slice(0, TOP_ITEMS_LIMIT)}
-                  />
-                }
-              </WorshipCatalogProvider>
-            </div>
-          </DialogContent>
+              {catalogLoading && !catalogLoaded ?
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+              : <WorshipCatalogProvider catalog={catalog}>
+                  {debouncedQuery.length ?
+                    <GlobalSearchResults query={debouncedQuery} />
+                  : <WorshipTopItemsClient
+                      songs={catalog.songs.slice(0, TOP_ITEMS_LIMIT)}
+                      sermons={catalog.sermons.slice(0, TOP_ITEMS_LIMIT)}
+                      articles={catalog.articles.slice(0, TOP_ITEMS_LIMIT)}
+                    />
+                  }
+                </WorshipCatalogProvider>
+              }
+            </div>          </DialogContent>
         </Dialog>
       : null}
     </>

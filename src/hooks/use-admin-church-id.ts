@@ -6,7 +6,10 @@ import {
   getManagedChurchIdForUser,
   isPlatformSuperAdmin,
 } from "@/lib/church-access";
-import { getLegacyDefaultChurchId } from "@/lib/church-scope";
+import {
+  getLegacyDefaultChurchId,
+  resolveChurchIdForWrite,
+} from "@/lib/church-scope";
 import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 
 /** Effective church scope for admin content management. */
@@ -14,7 +17,7 @@ export function useAdminChurchId(): string | null {
   const { authUser, profile } = useFirebaseAuth();
   const { activeChurchId } = useActiveChurch();
 
-  if (!MULTI_CHURCH_ENABLED) return null;
+  if (!MULTI_CHURCH_ENABLED) return resolveChurchIdForWrite(null);
 
   const accessUser = {
     email: authUser?.email,

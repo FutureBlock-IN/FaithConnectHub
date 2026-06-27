@@ -114,7 +114,7 @@ export function AddArticleModal({
   initialArticle,
   churchId,
 }: AddArticleModalProps) {
-  const { authUser } = useFirebaseAuth();
+  const { user, authUser } = useFirebaseAuth();
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -202,6 +202,8 @@ export function AddArticleModal({
 
     setLoading(true);
     try {
+      const idToken = user ? await user.getIdToken() : undefined;
+
       if (initialArticle) {
         await updateArticle(initialArticle.id, payload);
 
@@ -226,6 +228,7 @@ export function AddArticleModal({
           image: coverImageUrl,
           isPublished: payload.isPublished,
           wasPublished: initialArticle.isPublished,
+          idToken,
         });
 
         toast.success("Article updated successfully");
@@ -257,6 +260,7 @@ export function AddArticleModal({
           contentTitle: payload.title,
           image: coverImageUrl,
           isPublished: payload.isPublished,
+          idToken,
         });
 
         toast.success("Article added successfully");
@@ -276,7 +280,7 @@ export function AddArticleModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !loading) onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initialArticle ? "Edit Article" : "Add Article"}</DialogTitle>
           <DialogDescription>

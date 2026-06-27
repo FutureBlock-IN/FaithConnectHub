@@ -42,7 +42,10 @@ export default async function DonationCampaignPage({
   const path = `/donations/${encodeURIComponent(id)}`;
 
   return (
-    <article aria-label={campaign?.title ?? "Donation campaign"}>
+    <article
+      aria-label={campaign?.title ?? "Donation campaign"}
+      className="mx-auto w-full min-w-0 max-w-5xl pb-10"
+    >
       {campaign ?
         <JsonLd
           data={buildBreadcrumbJsonLd([

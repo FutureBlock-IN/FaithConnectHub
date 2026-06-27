@@ -30,9 +30,10 @@ import {
   getLyricsTxtFilename,
 } from "@/lib/generate-lyrics-txt";
 import { getSongLyricsContent } from "@/lib/song-lyrics";
+import { pageDetailClass } from "@/lib/responsive-classes";
 import { getSongCoverUrl, cn } from "@/lib/utils";
 import { DEFAULT_SONG_COVER } from "@/config/site";
-import { incrementPlayCount } from "@/lib/firebase-queries";
+import { incrementPlayCount } from "@/lib/song-play-count";
 import {
   getSongAlternateTitle,
   getSongDisplayTitle,
@@ -135,7 +136,7 @@ export function SongDetailClient({ song }: SongDetailClientProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl pb-10">
+    <div className={cn(pageDetailClass, "w-full")}>
       <div className="py-4 sm:py-6">
         <Link
           href="/"
@@ -171,7 +172,7 @@ export function SongDetailClient({ song }: SongDetailClientProps) {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">
                 Worship Song
               </p>
-              <h1 className="font-heading text-2xl font-bold leading-tight text-white sm:text-3xl md:text-4xl">
+              <h1 className="font-heading text-[clamp(1.5rem,1.2rem+1.2vw,2.25rem)] font-bold leading-tight text-white">
                 {displayTitle}
               </h1>
               {alternateTitle && alternateTitle !== displayTitle ?

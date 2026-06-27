@@ -2,7 +2,9 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { NextResponse } from "next/server";
 
+import { triggerWelcomeEmails } from "@/lib/email/triggers";
 import { getAdminApp, getAdminDb } from "@/lib/firebase-admin";
+import { DEFAULT_EMAIL_PREFERENCES } from "@/lib/email/preferences";
 
 type SyncProfileBody = {
   firstName?: string;
@@ -61,10 +63,20 @@ export async function POST(request: Request) {
       lastName,
       email: email ?? "",
       role: "user" as const,
+      emailPreferences: DEFAULT_EMAIL_PREFERENCES,
       createdAt: FieldValue.serverTimestamp(),
     };
 
     await userRef.set(profile);
+
+    if (email?.trim()) {
+      triggerWelcomeEmails({
+        email: email.trim(),
+        firstName,
+        lastName,
+        userId: uid,
+      });
+    }
 
     return NextResponse.json({
       firstName,

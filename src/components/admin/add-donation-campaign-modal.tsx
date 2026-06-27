@@ -43,6 +43,8 @@ import {
   donationCampaignFormSchema,
   type DonationCampaignFormValues,
 } from "@/lib/donation-form-validation";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { notifyIfDonationCampaignPublished } from "@/lib/notify-if-published";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 
@@ -61,6 +63,7 @@ export function AddDonationCampaignModal({
   initialCampaign,
   churchId,
 }: AddDonationCampaignModalProps) {
+  const { user, authUser } = useFirebaseAuth();
   const [bannerFile, setBannerFile] = useState<File | undefined>();
   const [bannerPreview, setBannerPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -121,6 +124,7 @@ export function AddDonationCampaignModal({
   async function onSubmit(values: DonationCampaignFormValues) {
     setLoading(true);
     try {
+      const idToken = user ? await user.getIdToken() : undefined;
       const payload = {
         title: values.title.trim(),
         description: values.description.trim(),
@@ -131,6 +135,7 @@ export function AddDonationCampaignModal({
       };
 
       if (initialCampaign) {
+        const wasStatus = initialCampaign.status;
         await updateDonationCampaign(initialCampaign.id, payload);
 
         if (bannerFile) {
@@ -144,6 +149,14 @@ export function AddDonationCampaignModal({
           );
           await updateDonationCampaign(initialCampaign.id, { bannerImage: url });
         }
+
+        await notifyIfDonationCampaignPublished({
+          contentId: initialCampaign.id,
+          contentTitle: payload.title,
+          status: payload.status,
+          wasStatus,
+          idToken,
+        });
 
         toast.success("Campaign updated successfully");
       } else {
@@ -160,6 +173,13 @@ export function AddDonationCampaignModal({
           );
           await updateDonationCampaign(campaignId, { bannerImage: url });
         }
+
+        await notifyIfDonationCampaignPublished({
+          contentId: campaignId,
+          contentTitle: payload.title,
+          status: payload.status,
+          idToken,
+        });
 
         toast.success("Campaign created successfully");
       }
@@ -185,7 +205,7 @@ export function AddDonationCampaignModal({
         if (!open && !loading) onClose();
       }}
     >
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {initialCampaign ? "Edit Campaign" : "Create Campaign"}

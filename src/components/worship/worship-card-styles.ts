@@ -1,3 +1,5 @@
+import { contentCardGridClassName } from "@/lib/responsive-classes";
+
 /** Shared layout styles for Articles & Sermons vertical content cards only. */
 
 export const worshipContentCardClassName =
@@ -6,5 +8,4 @@ export const worshipContentCardClassName =
 export const worshipContentImageClassName =
   "relative h-[180px] w-full shrink-0 overflow-hidden";
 
-export const worshipContentGridClassName =
-  "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+export const worshipContentGridClassName = contentCardGridClassName;

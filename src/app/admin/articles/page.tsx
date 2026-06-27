@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function AdminArticlesPage() {
-  redirect("/admin-worship-panel?tab=articles");
+export default function AdminArticlesRedirectPage() {
+  redirect("/admin-worship-panel/articles");
 }

@@ -247,7 +247,7 @@ export function AddChurchModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {initialChurch ? "Edit Church" : "Add Church"}
@@ -258,6 +258,7 @@ export function AddChurchModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <fieldset disabled={loading} className="space-y-5 disabled:opacity-70">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="church-name">Church Name</Label>
@@ -512,6 +513,7 @@ export function AddChurchModal({
               : "Create Church"}
             </Button>
           </div>
+          </fieldset>
         </form>
       </DialogContent>
     </Dialog>

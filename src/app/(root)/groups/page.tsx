@@ -1,4 +1,5 @@
 import { RequireAuth } from "@/components/auth/require-auth";
+import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 
 export const metadata = {
   title: "Groups",
@@ -8,9 +9,9 @@ export const metadata = {
 export default function GroupsPage() {
   return (
     <RequireAuth>
-      <div className="container py-8">
-        <h1 className="font-heading text-3xl font-bold">Groups</h1>
-        <p className="mt-2 text-muted-foreground">
+      <div className={pageContentClass}>
+        <h1 className={typePageTitleClass}>Groups</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Manage and join worship groups.
         </p>
       </div>

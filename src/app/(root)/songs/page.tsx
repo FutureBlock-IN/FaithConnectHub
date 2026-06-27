@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
 import { SongsTabContent } from "@/components/worship/songs-tab-content";
+import { SongsAdminBar } from "@/components/admin/inline/songs-admin-bar";
 import { getPageChurchContext } from "@/lib/church-page-data";
 import { getPublishedSongsCached } from "@/lib/cached-worship-data";
+import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const revalidate = 60;
@@ -27,19 +29,22 @@ export default async function SongsPage() {
 
   return (
     <section
-      className="mx-auto w-full max-w-6xl space-y-6 pb-10 pt-2 sm:space-y-8"
+      className={pageContentClass}
       aria-labelledby="songs-heading"
     >
-      <header className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
-          Worship Collection
-        </p>
-        <h1 id="songs-heading" className="font-heading text-2xl font-bold sm:text-3xl">
-          Songs
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Listen to Christian worship music and read Telugu and English lyrics.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
+            Worship Collection
+          </p>
+          <h1 id="songs-heading" className={typePageTitleClass}>
+            Songs
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Listen to Christian worship music and read Telugu and English lyrics.
+          </p>
+        </div>
+        <SongsAdminBar churchId={churchId} />
       </header>
 
       <SongsTabContent initialSongs={songs} />

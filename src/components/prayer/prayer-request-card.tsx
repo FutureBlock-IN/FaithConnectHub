@@ -3,12 +3,14 @@ import { CalendarDays } from "lucide-react";
 import type { FirebasePrayerRequest } from "@/types/firebase-prayer-request";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
+import { PrayerAnsweredBadge } from "@/components/prayer/prayer-answered-button";
 import { PrayButtonStatic } from "@/components/prayer/pray-button";
 import {
   formatPrayerDate,
   getPrayerRequestDisplayName,
   toPrayerRequestPreview,
 } from "@/lib/prayer-request-firestore";
+import { getPrayerCategoryLabel } from "@/lib/prayer-request-validation";
 import { cn } from "@/lib/utils";
 
 type PrayerRequestCardProps = {
@@ -26,6 +28,7 @@ export function PrayerRequestCard({
 }: PrayerRequestCardProps) {
   const displayName = getPrayerRequestDisplayName(request);
   const detailHref = `/prayer-requests/${encodeURIComponent(request.id)}`;
+  const categoryLabel = getPrayerCategoryLabel(request.category);
 
   return (
     <article
@@ -40,6 +43,14 @@ export function PrayerRequestCard({
             href={detailHref}
             className="block space-y-2 transition-colors hover:text-primary"
           >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                {categoryLabel}
+              </span>
+              {request.isAnswered ?
+                <PrayerAnsweredBadge className="text-[10px]" />
+              : null}
+            </div>
             <h3
               className={cn(
                 "font-heading font-semibold text-foreground",
@@ -68,7 +79,7 @@ export function PrayerRequestCard({
           </div>
 
           {showPrayButton ?
-            <PrayButtonStatic request={request} />
+            <PrayButtonStatic request={request} compact />
           : null}
         </div>
       </div>

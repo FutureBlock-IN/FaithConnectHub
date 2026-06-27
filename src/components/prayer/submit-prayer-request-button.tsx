@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { HandHeart } from "lucide-react";
 
 import { useContentAuthDialog } from "@/context/content-auth-dialog-context";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
@@ -52,22 +52,28 @@ export function SubmitPrayerRequestButton({
         onClick={handleClick}
         disabled={loading}
       >
-        <Plus className="mr-2 size-4" />
-        Submit Prayer Request
+        <HandHeart className="mr-2 size-4" aria-hidden />
+        Request Prayer
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Submit Prayer Request</DialogTitle>
+            <DialogTitle>Request Prayer</DialogTitle>
             <DialogDescription>
               Share your prayer need with the community. Requests are reviewed
-              before appearing publicly.
+              before appearing on the public prayer wall.
             </DialogDescription>
           </DialogHeader>
 
           {open ?
-            <PrayerRequestForm variant="dialog" />
+            <PrayerRequestForm
+              variant="dialog"
+              onCancel={() => setOpen(false)}
+              onSuccess={() => {
+                /* keep open to show success state */
+              }}
+            />
           : null}
         </DialogContent>
       </Dialog>

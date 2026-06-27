@@ -45,6 +45,7 @@ import { createEvent, updateEvent } from "@/lib/event-mutations";
 import { notifyIfEventPublished } from "@/lib/notify-if-published";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
 
 type AddEventModalProps = {
   isOpen: boolean;
@@ -61,6 +62,7 @@ export function AddEventModal({
   initialEvent,
   churchId,
 }: AddEventModalProps) {
+  const { user } = useFirebaseAuth();
   const [bannerFile, setBannerFile] = useState<File | undefined>();
   const [bannerPreview, setBannerPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -135,6 +137,8 @@ export function AddEventModal({
   async function onSubmit(values: EventFormValues) {
     setLoading(true);
     try {
+      const idToken = user ? await user.getIdToken() : undefined;
+
       const payload = {
         title: values.title.trim(),
         description: values.description.trim(),
@@ -170,6 +174,7 @@ export function AddEventModal({
           image: bannerImageUrl,
           status: payload.status,
           wasStatus: initialEvent.status,
+          idToken,
         });
 
         toast.success("Event updated successfully");
@@ -195,6 +200,7 @@ export function AddEventModal({
           contentTitle: payload.title,
           image: bannerImageUrl,
           status: payload.status,
+          idToken,
         });
 
         toast.success("Event created successfully");
@@ -219,7 +225,7 @@ export function AddEventModal({
         if (!open && !loading) onClose();
       }}
     >
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initialEvent ? "Edit Event" : "Create Event"}</DialogTitle>
           <DialogDescription>

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Heart, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import type { FavoriteItemType } from "@/types/firebase-favorite";
 
@@ -41,7 +42,13 @@ export function FavoriteButton({
 
     setPending(true);
     try {
+      const wasFavorited = favorited;
       await toggleFavorite(itemType, itemId);
+      toast.success(
+        wasFavorited ? "Removed from favorites" : "Added to favorites"
+      );
+    } catch {
+      toast.error("Unable to update favorites. Please try again.");
     } finally {
       setPending(false);
     }
