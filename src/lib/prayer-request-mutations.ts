@@ -18,6 +18,7 @@ import {
   PRAYER_REQUESTS_COLLECTION,
 } from "./prayer-request-firestore";
 import { wrapFirebaseError } from "./firebase-utils";
+import { mergeClientTenantFields } from "./organization/tenant-scope";
 import {
   sanitizePrayerRequestInput,
   type PrayerRequestSubmitValues,
@@ -31,14 +32,19 @@ export async function createPrayerRequest(
   churchId: string,
   userId: string,
   values: PrayerRequestSubmitValues,
-  options?: { email?: string | null }
+  options?: { email?: string | null; organizationId?: string; branchId?: string }
 ): Promise<string> {
   const sanitized = sanitizePrayerRequestInput(values);
-  const payload = buildPrayerRequestCreatePayload({
+  const basePayload = buildPrayerRequestCreatePayload({
     ...sanitized,
     churchId,
     userId,
     email: sanitized.email ?? options?.email?.trim() ?? undefined,
+  });
+  const payload = mergeClientTenantFields(basePayload, {
+    organizationId: options?.organizationId,
+    churchId,
+    branchId: options?.branchId,
   });
   const now = Timestamp.now();
 

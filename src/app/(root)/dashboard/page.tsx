@@ -1,5 +1,12 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
-export default function DashboardPage() {
-  redirect("/profile/dashboard");
+import { AdminDashboard } from "@/components/admin/admin-dashboard";
+import { DashboardPageSkeleton } from "@/components/skeletons/dashboard-page-skeleton";
+
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={<DashboardPageSkeleton />}>
+      <AdminDashboard />
+    </Suspense>
+  );
 }

@@ -1,50 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { useQuery } from "@tanstack/react-query";
+import { doc, getDoc } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import {
   buildPrayerIntercessionId,
   PRAYER_INTERCESSIONS_COLLECTION,
 } from "@/lib/prayer-request-firestore";
+import { QUERY_GC_TIME, QUERY_STALE_TIME } from "@/lib/react-query-config";
 
 export function usePrayerIntercession(
   requestId: string,
   userId: string | undefined
 ) {
-  const [hasPrayed, setHasPrayed] = useState(false);
-  const [loading, setLoading] = useState(Boolean(userId));
+  const { data: hasPrayed = false, isLoading } = useQuery({
+    queryKey: ["prayer-intercession", requestId, userId],
+    enabled: Boolean(userId && requestId),
+    staleTime: QUERY_STALE_TIME,
+    gcTime: QUERY_GC_TIME,
+    queryFn: async () => {
+      if (!userId || !requestId) return false;
 
-  useEffect(() => {
-    if (!userId || !requestId) {
-      setHasPrayed(false);
-      setLoading(false);
-      return;
-    }
+      const intercessionRef = doc(
+        db,
+        PRAYER_INTERCESSIONS_COLLECTION,
+        buildPrayerIntercessionId(requestId, userId)
+      );
+      const snapshot = await getDoc(intercessionRef);
+      return snapshot.exists();
+    },
+  });
 
-    setLoading(true);
-
-    const intercessionRef = doc(
-      db,
-      PRAYER_INTERCESSIONS_COLLECTION,
-      buildPrayerIntercessionId(requestId, userId)
-    );
-
-    const unsubscribe = onSnapshot(
-      intercessionRef,
-      (snapshot) => {
-        setHasPrayed(snapshot.exists());
-        setLoading(false);
-      },
-      () => {
-        setHasPrayed(false);
-        setLoading(false);
-      }
-    );
-
-    return unsubscribe;
-  }, [requestId, userId]);
-
-  return { hasPrayed, loading };
+  return { hasPrayed, loading: isLoading };
 }

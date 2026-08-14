@@ -12,6 +12,7 @@ import {
 import { useAdminChurchId } from "@/hooks/use-admin-church-id";
 import { useSubscriptionQuery } from "@/hooks/use-subscription-query";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useOrganizationOptional } from "@/context/organization-context";
 import type {
   PlanId,
   SubscriptionSnapshot,
@@ -31,6 +32,7 @@ type UpgradeModalState = {
 };
 
 type SubscriptionContextValue = {
+  organizationId: string | null;
   churchId: string | null;
   snapshot: SubscriptionSnapshot | undefined;
   loading: boolean;
@@ -51,13 +53,15 @@ const SubscriptionContext = createContext<SubscriptionContextValue | null>(null)
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { authUser } = useFirebaseAuth();
   const churchId = useAdminChurchId();
+  const organization = useOrganizationOptional();
+  const organizationId = organization?.organization?.id ?? null;
   const [upgradeModal, setUpgradeModal] = useState<UpgradeModalState>({
     open: false,
   });
 
-  const enabled = Boolean(authUser && churchId);
+  const enabled = Boolean(authUser && organizationId);
 
-  const { data, isLoading, error, refetch } = useSubscriptionQuery(churchId);
+  const { data, isLoading, error, refetch } = useSubscriptionQuery(organizationId);
 
   const openUpgradeModal = useCallback(
     (input: { limitKey: UsageLimitKey; message?: string }) => {
@@ -109,6 +113,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     (): SubscriptionContextValue => ({
+      organizationId,
       churchId,
       snapshot: data,
       loading: enabled && isLoading,
@@ -123,6 +128,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       canUseFeature,
     }),
     [
+      organizationId,
       churchId,
       data,
       enabled,

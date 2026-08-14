@@ -19,6 +19,8 @@ import {
   normalizeDonationCampaignFromFirestore,
   normalizeDonationFromFirestore,
 } from "./donation-firestore";
+import type { TenantScope } from "./organization/tenant-scope";
+import { fetchTenantCollection } from "./tenant-content-server";
 import { filterRecordsByChurch } from "./church-scope";
 import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
@@ -188,18 +190,20 @@ async function fetchActiveCampaigns(): Promise<FirebaseDonationCampaign[]> {
 }
 
 export async function getDonationCampaigns(
-  churchId: string
+  scope: TenantScope
 ): Promise<FirebaseDonationCampaign[]> {
-  return filterRecordsByChurch(await fetchAllCampaigns(), churchId);
+  return fetchTenantCollection(
+    DONATION_CAMPAIGNS_COLLECTION,
+    scope,
+    (id, data) => normalizeDonationCampaignFromFirestore(id, data),
+    { orderField: "createdAt", defaultBranchId: scope.branchId ?? null }
+  );
 }
 
 export async function getActiveDonationCampaigns(
-  churchId: string
+  scope: TenantScope
 ): Promise<FirebaseDonationCampaign[]> {
-  return filterRecordsByChurch(
-    filterActiveCampaigns(await fetchActiveCampaigns()),
-    churchId
-  );
+  return filterActiveCampaigns(await getDonationCampaigns(scope));
 }
 
 export async function getDonationCampaignById(

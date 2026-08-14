@@ -1,9 +1,8 @@
 import {
   collection,
-  onSnapshot,
+  getDocs,
   query,
   where,
-  type Unsubscribe,
 } from "firebase/firestore";
 
 import type { FirebaseFavorite } from "@/types/firebase-favorite";
@@ -20,31 +19,35 @@ function sortFavoritesByCreatedAtDesc(
   return [...favorites].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export function subscribeToUserFavorites(
-  userId: string,
-  onChange: (favorites: FirebaseFavorite[]) => void,
-  onError?: (error: Error) => void
-): Unsubscribe {
-  // Single-field filter only — avoids composite index while indexes are building.
+export async function fetchUserFavorites(
+  userId: string
+): Promise<FirebaseFavorite[]> {
   const favoritesQuery = query(
     collection(db, FAVORITES_COLLECTION),
     where("userId", "==", userId)
   );
 
-  return onSnapshot(
-    favoritesQuery,
-    (snapshot) => {
-      const favorites = snapshot.docs.map((docSnap) =>
-        normalizeFavoriteFromFirestore(
-          docSnap.id,
-          docSnap.data() as Record<string, unknown>
-        )
-      );
-      onChange(sortFavoritesByCreatedAtDesc(favorites));
-    },
-    (error) => {
-      console.error("[subscribeToUserFavorites]", error);
-      onError?.(error);
-    }
+  const snapshot = await getDocs(favoritesQuery);
+  const favorites = snapshot.docs.map((docSnap) =>
+    normalizeFavoriteFromFirestore(
+      docSnap.id,
+      docSnap.data() as Record<string, unknown>
+    )
   );
+
+  return sortFavoritesByCreatedAtDesc(favorites);
+}
+
+/** @deprecated Use fetchUserFavorites with React Query instead. */
+export function subscribeToUserFavorites(
+  userId: string,
+  onChange: (favorites: FirebaseFavorite[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  void fetchUserFavorites(userId)
+    .then(onChange)
+    .catch((error) => {
+      onError?.(error instanceof Error ? error : new Error("Failed to load favorites"));
+    });
+  return () => {};
 }

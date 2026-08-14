@@ -7,13 +7,10 @@ import Script from "next/script";
 import type { Metadata, Viewport } from "next";
 import type { ThemeConfig } from "@/types";
 
-import Providers from "@/components/provider";
-import { SiteJsonLd } from "@/components/seo/json-ld";
-import { TailwindIndicator } from "@/components/tailwind-indicator";
+import { RootClientShell } from "@/components/root-client-shell";
 import { siteConfig } from "@/config/site";
 import { env } from "@/lib/env";
 import { SEO_KEYWORDS } from "@/lib/seo";
-import { getActiveChurchesCached } from "@/lib/cached-church-data";
 import { getActiveChurchIdFromCookies } from "@/lib/church-server";
 import * as fonts from "@/lib/fonts";
 import { absoluteUrl, cn } from "@/lib/utils";
@@ -35,10 +32,7 @@ export default async function RootLayout({ children, modal }: RootLayoutProps) {
     themeConfig?.value ?? '{"theme":"default","radius":"default"}'
   ) as ThemeConfig;
 
-  const [initialChurches, initialActiveChurchId] = await Promise.all([
-    getActiveChurchesCached(),
-    getActiveChurchIdFromCookies(),
-  ]);
+  const initialActiveChurchId = await getActiveChurchIdFromCookies();
 
   return (
     <React.StrictMode>
@@ -55,16 +49,9 @@ export default async function RootLayout({ children, modal }: RootLayoutProps) {
             : ({ "--radius": `${radius}rem` } as React.CSSProperties)
           }
         >
-          <Providers
-            initialChurches={initialChurches}
-            initialActiveChurchId={initialActiveChurchId}
-          >
-            <SiteJsonLd />
+          <RootClientShell initialActiveChurchId={initialActiveChurchId} modal={modal}>
             {children}
-            {modal}
-          </Providers>
-
-          <TailwindIndicator />
+          </RootClientShell>
         </body>
 
         {/* Umami Analytics */}

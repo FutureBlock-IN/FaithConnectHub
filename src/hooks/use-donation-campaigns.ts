@@ -1,25 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   collection,
   doc,
-  onSnapshot,
+  getDoc,
+  getDocs,
+  limit,
   orderBy,
+  query,
   where,
 } from "firebase/firestore";
 
 import type { FirebaseDonationCampaign } from "@/types/firebase-donation";
 
-import { useActiveChurchScope } from "@/context/active-church-context";
-import { buildClientScopedQuery } from "@/lib/church-query-builder";
+import {
+  useContentTenantScope,
+  useTenantMatchOptions,
+} from "@/hooks/use-workspace-tenant-scope";
 import {
   DONATION_CAMPAIGNS_COLLECTION,
   filterActiveCampaigns,
   normalizeDonationCampaignFromFirestore,
 } from "@/lib/donation-firestore";
-import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { db } from "@/lib/firebase";
+import {
+  filterRecordsByTenant,
+  recordMatchesTenantScope,
+} from "@/lib/organization/tenant-scope";
+import {
+  DEFAULT_LIST_LIMIT,
+  QUERY_GC_TIME,
+  QUERY_STALE_TIME,
+} from "@/lib/react-query-config";
+import { buildWorkspaceChurchTenantQuery } from "@/lib/tenant-query-builder";
 
 type UseActiveDonationCampaignsOptions = {
   maxItems?: number;
@@ -30,48 +44,55 @@ export function useActiveDonationCampaigns(
   options: UseActiveDonationCampaignsOptions = {}
 ) {
   const { maxItems } = options;
-  const { churchId, isLoading: churchResolving } = useActiveChurchScope();
-  const [campaigns, setCampaigns] = useState(initialData);
-  const [syncing, setSyncing] = useState(initialData.length === 0);
+  const scope = useContentTenantScope();
+  const matchOptions = useTenantMatchOptions();
+  const pageSize = maxItems ?? DEFAULT_LIST_LIMIT;
 
-  useEffect(() => {
-    if (MULTI_CHURCH_ENABLED && !churchId) return;
+  const { data: campaigns = initialData, isLoading } = useQuery({
+    queryKey: [
+      "active-donation-campaigns",
+      scope.churchId,
+      scope.organizationId,
+      scope.branchId,
+      pageSize,
+    ],
+    enabled: !scope.blocked,
+    staleTime: QUERY_STALE_TIME,
+    gcTime: QUERY_GC_TIME,
+    queryFn: async () => {
+      const campaignsQuery = buildWorkspaceChurchTenantQuery(
+        collection(db, DONATION_CAMPAIGNS_COLLECTION),
+        scope,
+        where("status", "==", "active"),
+        orderBy("createdAt", "desc"),
+        limit(pageSize)
+      );
 
-    setSyncing(true);
+      if (!campaignsQuery) return [];
 
-    const campaignsQuery = buildClientScopedQuery(
-      collection(db, DONATION_CAMPAIGNS_COLLECTION),
-      churchId,
-      where("status", "==", "active"),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe = onSnapshot(
-      campaignsQuery,
-      (snapshot) => {
-        let next = filterActiveCampaigns(
+      const snapshot = await getDocs(campaignsQuery);
+      let next = filterActiveCampaigns(
+        filterRecordsByTenant(
           snapshot.docs.map((docSnap) =>
             normalizeDonationCampaignFromFirestore(
               docSnap.id,
               docSnap.data() as Record<string, unknown>
             )
-          )
-        );
+          ),
+          scope,
+          matchOptions
+        )
+      );
 
-        if (maxItems !== undefined) {
-          next = next.slice(0, maxItems);
-        }
+      if (maxItems !== undefined) {
+        next = next.slice(0, maxItems);
+      }
 
-        setCampaigns(next);
-        setSyncing(false);
-      },
-      () => setSyncing(false)
-    );
+      return next;
+    },
+  });
 
-    return unsubscribe;
-  }, [churchId, maxItems]);
-
-  const loading = churchResolving || syncing;
+  const loading = scope.isLoading || isLoading;
 
   return { campaigns, loading };
 }
@@ -80,30 +101,38 @@ export function useDonationCampaign(
   campaignId: string,
   initialData?: FirebaseDonationCampaign | null
 ) {
-  const [campaign, setCampaign] = useState(initialData ?? null);
-  const [loading, setLoading] = useState(!initialData);
+  const scope = useContentTenantScope();
+  const matchOptions = useTenantMatchOptions();
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      doc(db, DONATION_CAMPAIGNS_COLLECTION, campaignId),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setCampaign(null);
-        } else {
-          setCampaign(
-            normalizeDonationCampaignFromFirestore(
-              snapshot.id,
-              snapshot.data() as Record<string, unknown>
-            )
-          );
-        }
-        setLoading(false);
-      },
-      () => setLoading(false)
-    );
+  const { data: campaign = initialData ?? null, isLoading } = useQuery({
+    queryKey: [
+      "donation-campaign",
+      campaignId,
+      scope.churchId,
+      scope.organizationId,
+      scope.branchId,
+    ],
+    enabled: Boolean(campaignId),
+    staleTime: QUERY_STALE_TIME,
+    gcTime: QUERY_GC_TIME,
+    initialData: initialData ?? undefined,
+    queryFn: async () => {
+      const snapshot = await getDoc(
+        doc(db, DONATION_CAMPAIGNS_COLLECTION, campaignId)
+      );
 
-    return unsubscribe;
-  }, [campaignId]);
+      if (!snapshot.exists()) return null;
 
-  return { campaign, loading };
+      const normalized = normalizeDonationCampaignFromFirestore(
+        snapshot.id,
+        snapshot.data() as Record<string, unknown>
+      );
+
+      return recordMatchesTenantScope(normalized, scope, matchOptions)
+        ? normalized
+        : null;
+    },
+  });
+
+  return { campaign, loading: isLoading };
 }

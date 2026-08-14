@@ -6,6 +6,7 @@ import { HandHeart } from "lucide-react";
 import { useContentAuthDialog } from "@/context/content-auth-dialog-context";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -20,12 +21,14 @@ type SubmitPrayerRequestButtonProps = {
   className?: string;
   size?: "default" | "sm" | "lg";
   variant?: "default" | "outline" | "secondary";
+  label?: string;
 };
 
 export function SubmitPrayerRequestButton({
   className,
   size = "default",
   variant = "default",
+  label = "Request Prayer",
 }: SubmitPrayerRequestButtonProps) {
   const { authUser, loading } = useFirebaseAuth();
   const { openDialog } = useContentAuthDialog();
@@ -48,18 +51,26 @@ export function SubmitPrayerRequestButton({
         type="button"
         size={size}
         variant={variant}
-        className={className}
+        className={cn(
+          "group inline-flex items-center justify-center gap-2 rounded-full font-medium",
+          "shadow-sm transition-all duration-200 ease-out",
+          "hover:shadow-md active:scale-[0.98]",
+          className
+        )}
         onClick={handleClick}
         disabled={loading}
       >
-        <HandHeart className="mr-2 size-4" aria-hidden />
-        Request Prayer
+        <HandHeart
+          className="size-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
+          aria-hidden
+        />
+        {label}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Request Prayer</DialogTitle>
+            <DialogTitle>Share a Prayer Request</DialogTitle>
             <DialogDescription>
               Share your prayer need with the community. Requests are reviewed
               before appearing on the public prayer wall.

@@ -40,9 +40,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { createArticle, updateArticle } from "@/lib/firebase-article-queries";
 import { isValidYouTubeUrl } from "@/lib/media-url-validation";
 import { notifyIfNewlyPublished } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 
@@ -115,6 +117,8 @@ export function AddArticleModal({
   churchId,
 }: AddArticleModalProps) {
   const { user, authUser } = useFirebaseAuth();
+  const { invalidateArticles } = useInvalidateAdminQueries();
+  const tenantFields = useTenantNotifyFields();
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -203,6 +207,10 @@ export function AddArticleModal({
     setLoading(true);
     try {
       const idToken = user ? await user.getIdToken() : undefined;
+      if (!idToken) {
+        toast.error("You must be signed in to upload files.");
+        return;
+      }
 
       if (initialArticle) {
         await updateArticle(initialArticle.id, payload);
@@ -215,7 +223,8 @@ export function AddArticleModal({
             initialArticle.id,
             "cover",
             fd,
-            (p) => setUploadProgress(p)
+            (p) => setUploadProgress(p),
+            idToken
           );
           coverImageUrl = url;
           await updateArticle(initialArticle.id, { coverImage: url });
@@ -229,6 +238,8 @@ export function AddArticleModal({
           isPublished: payload.isPublished,
           wasPublished: initialArticle.isPublished,
           idToken,
+          churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Article updated successfully");
@@ -248,7 +259,8 @@ export function AddArticleModal({
             articleId,
             "cover",
             fd,
-            (p) => setUploadProgress(p)
+            (p) => setUploadProgress(p),
+            idToken
           );
           coverImageUrl = url;
           await updateArticle(articleId, { coverImage: url });
@@ -261,11 +273,14 @@ export function AddArticleModal({
           image: coverImageUrl,
           isPublished: payload.isPublished,
           idToken,
+          churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Article added successfully");
       }
 
+      await invalidateArticles();
       onSave();
       form.reset();
       setCoverFile(undefined);

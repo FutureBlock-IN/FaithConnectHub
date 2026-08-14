@@ -8,6 +8,7 @@ import type {
 } from "@/types/firebase-song";
 
 import { resolveDocumentChurchId } from "./church-scope";
+import { parseTenantFieldsFromDocument } from "./organization/tenant-scope";
 
 export const SONGS_COLLECTION = "songs";
 
@@ -120,9 +121,13 @@ export function normalizeSongFromFirestore(
   const resolvedOriginal = translatedLyricsField ?? originalLyrics;
   const resolvedTranslation = englishLyricsField ?? translationLyrics;
 
+  const tenant = parseTenantFieldsFromDocument(data);
+
   return {
     id,
     churchId: resolveDocumentChurchId(data),
+    organizationId: tenant.organizationId || undefined,
+    branchId: tenant.branchId,
     songTitle,
     alternateTitle,
     artist: String(data.artist ?? "").trim() || undefined,

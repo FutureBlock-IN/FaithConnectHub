@@ -15,6 +15,7 @@ import {
 } from "./donation-firestore";
 import { triggerDonationCompletedEmails } from "./email/triggers";
 import { getAdminDb } from "./firebase-admin";
+import { mergeTenantFieldsIntoPayload } from "./organization/resolve-tenant-scope";
 
 export type PendingDonationInput = {
   campaignId: string;
@@ -71,17 +72,25 @@ export async function createPendingDonation(
     throw new Error("Donation currency does not match campaign currency.");
   }
 
+  const donationPayload = await mergeTenantFieldsIntoPayload(
+    {
+      campaignId: input.campaignId,
+      donorName: input.isAnonymous ? "Anonymous" : input.donorName.trim(),
+      donorEmail: input.donorEmail.trim(),
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: "pending",
+      paymentProvider: input.paymentProvider,
+      transactionId: "",
+      isAnonymous: input.isAnonymous,
+      idempotencyKey: input.idempotencyKey ?? null,
+      churchId: campaign.churchId,
+    },
+    campaign.churchId
+  );
+
   const docRef = await adminDb.collection(DONATIONS_COLLECTION).add({
-    campaignId: input.campaignId,
-    donorName: input.isAnonymous ? "Anonymous" : input.donorName.trim(),
-    donorEmail: input.donorEmail.trim(),
-    amount: input.amount,
-    currency: input.currency,
-    paymentStatus: "pending",
-    paymentProvider: input.paymentProvider,
-    transactionId: "",
-    isAnonymous: input.isAnonymous,
-    idempotencyKey: input.idempotencyKey ?? null,
+    ...donationPayload,
     createdAt: FieldValue.serverTimestamp(),
   });
 

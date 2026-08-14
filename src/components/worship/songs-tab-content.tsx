@@ -15,6 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
+import { WorkspaceChurchRequiredNotice } from "@/components/workspace/workspace-church-required-notice";
+import { useContentTenantScope } from "@/hooks/use-workspace-tenant-scope";
 import { useRealtimeSongs } from "@/hooks/use-worship-realtime";
 import {
   filterPublishedSongs,
@@ -42,7 +45,9 @@ type SongsTabContentProps = {
 };
 
 export function SongsTabContent({ initialSongs }: SongsTabContentProps) {
-  const { data: songs, syncing } = useRealtimeSongs(initialSongs);
+  const scope = useContentTenantScope();
+  const { data: songs, syncing, loadMore, hasMore, loadingMore } =
+    useRealtimeSongs(initialSongs);
   const visibleSongs = useMemo(() => filterPublishedSongs(songs), [songs]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
@@ -64,6 +69,10 @@ export function SongsTabContent({ initialSongs }: SongsTabContentProps) {
       return haystack.includes(query);
     });
   }, [visibleSongs, search, category]);
+
+  if (scope.blocked) {
+    return <WorkspaceChurchRequiredNotice />;
+  }
 
   if (syncing && visibleSongs.length === 0) {
     return <SongsPageGridSkeleton />;
@@ -105,6 +114,12 @@ export function SongsTabContent({ initialSongs }: SongsTabContentProps) {
           ))}
         </div>
       }
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   );
 }

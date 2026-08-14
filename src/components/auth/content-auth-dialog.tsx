@@ -16,8 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { setAuthCookie } from "@/context/firebase-auth-context";
+import { fetchPostAuthDestination } from "@/lib/auth/fetch-post-auth-destination";
 import { useContentAuthDialog } from "@/context/content-auth-dialog-context";
-import { resolveIsAdmin } from "@/lib/admin-access";
 import { buildAuthHref } from "@/lib/callback-url";
 import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { signInWithGoogle } from "@/lib/firebase-auth-service";
@@ -47,14 +47,14 @@ export function ContentAuthDialogHost() {
   async function handleGoogleSignIn() {
     setIsGoogleLoading(true);
     try {
-      const { profile } = await signInWithGoogle();
-      setAuthCookie(true, {
-        role: profile.role,
-        isAdmin: resolveIsAdmin(profile.email),
-      });
+      const googleResult = await signInWithGoogle();
+      if ("redirected" in googleResult) return;
+
+      const { profile } = googleResult;
+      setAuthCookie(true, { role: profile.role, profile });
       toast.success("Signed in with Google!");
       closeDialog();
-      router.push(callbackPath);
+      router.push(await fetchPostAuthDestination(callbackPath));
       router.refresh();
     } catch (error) {
       toast.error(getFirebaseAuthErrorMessage(error));

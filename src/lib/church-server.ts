@@ -6,6 +6,10 @@ import {
   ACTIVE_CHURCH_COOKIE_NAME,
   readActiveChurchIdFromCookieValue,
 } from "./church-cookies";
+import {
+  ACTIVE_BRANCH_COOKIE_NAME,
+  readActiveBranchIdFromCookieValue,
+} from "./branch-cookies";
 import { getLegacyDefaultChurchId } from "./church-scope";
 import { getActiveChurches, getChurchById } from "./church-queries";
 
@@ -13,6 +17,13 @@ export async function getActiveChurchIdFromCookies(): Promise<string | null> {
   const cookieStore = await cookies();
   return readActiveChurchIdFromCookieValue(
     cookieStore.get(ACTIVE_CHURCH_COOKIE_NAME)?.value
+  );
+}
+
+export async function getActiveBranchIdFromCookies(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return readActiveBranchIdFromCookieValue(
+    cookieStore.get(ACTIVE_BRANCH_COOKIE_NAME)?.value
   );
 }
 

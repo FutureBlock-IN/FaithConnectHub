@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { EventsListClient } from "@/components/events/events-list-client";
 import { EventsAdminBar } from "@/components/admin/inline/events-admin-bar";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import { getPublishedEventsGroupedCached } from "@/lib/cached-event-data";
 import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
@@ -18,8 +18,8 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function EventsPage() {
-  const { churchId } = await getPageChurchContext();
-  const { upcoming, past } = await getPublishedEventsGroupedCached(churchId);
+  const { scope } = await getPageTenantContext();
+  const { upcoming, past } = await getPublishedEventsGroupedCached(scope);
 
   return (
     <section
@@ -39,7 +39,7 @@ export default async function EventsPage() {
             ministry events.
           </p>
         </div>
-        <EventsAdminBar churchId={churchId} />
+        <EventsAdminBar churchId={scope.churchId ?? ""} />
       </header>
 
       <EventsListClient initialUpcoming={upcoming} initialPast={past} />

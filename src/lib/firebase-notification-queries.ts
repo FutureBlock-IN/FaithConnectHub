@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   limit,
@@ -8,6 +7,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  where,
   type Unsubscribe,
 } from "firebase/firestore";
 
@@ -16,6 +16,7 @@ import type {
   NotificationContentType,
 } from "@/types/firebase-notification";
 
+import { firebaseAuth } from "@/lib/firebase-auth-service";
 import { db } from "@/lib/firebase";
 
 const NOTIFICATIONS_COLLECTION = "notifications";
@@ -53,6 +54,16 @@ export const NOTIFICATION_PRESETS: Record<
     message: "A prayer request is now on the prayer wall.",
     pathPrefix: "/prayer-requests",
   },
+  prayer_request_submitted: {
+    title: "New Prayer Request",
+    message: "A member submitted a prayer request for review.",
+    pathPrefix: "/dashboard/content",
+  },
+  membership_approved: {
+    title: "Membership Approved",
+    message: "Your church membership has been approved.",
+    pathPrefix: "/dashboard",
+  },
 };
 
 function toMillis(value: unknown): number {
@@ -77,6 +88,8 @@ function normalizeNotification(
   return {
     id,
     type,
+    userId: String(data.userId ?? ""),
+    churchId: String(data.churchId ?? ""),
     title: String(data.title ?? preset.title),
     message: String(data.message ?? preset.message),
     // Fall back to legacy `title` field for notifications created before
@@ -84,13 +97,92 @@ function normalizeNotification(
     contentTitle: String(data.contentTitle ?? data.title ?? ""),
     image: String(data.image ?? "") || undefined,
     contentId: String(data.contentId ?? ""),
+    read: data.read === true,
     createdAt: toMillis(data.createdAt),
   };
+}
+
+async function createPublishNotificationViaApi(input: {
+  type: NotificationContentType;
+  contentId: string;
+  contentTitle: string;
+  image?: string;
+  organizationId?: string;
+  churchId?: string;
+  branchId?: string | null;
+}): Promise<string | null> {
+  const user = firebaseAuth.currentUser;
+  if (!user) {
+    console.warn("[notifications] skipped — not signed in");
+    return null;
+  }
+
+  const token = await user.getIdToken();
+  const response = await fetch("/api/notifications/publish", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to create notifications");
+  }
+
+  const data = (await response.json()) as { notificationId?: string | null };
+  return data.notificationId ?? null;
+}
+
+/**
+ * Creates in-app notification documents for newly published content.
+ * Uses Admin SDK via API so church admins are not blocked by branchMembership rules.
+ */
+export async function createPublishNotification(input: {
+  type: NotificationContentType;
+  contentId: string;
+  contentTitle: string;
+  image?: string;
+  organizationId?: string;
+  churchId?: string;
+  branchId?: string | null;
+}): Promise<string | null> {
+  if (!input.contentId.trim() || !input.contentTitle.trim()) {
+    console.warn("[notifications] skipped — missing contentId or contentTitle", input);
+    return null;
+  }
+
+  const churchId = input.churchId?.trim();
+  if (!churchId) {
+    console.warn("[notifications] skipped — churchId is required", input);
+    return null;
+  }
+
+  try {
+    const notificationId = await createPublishNotificationViaApi(input);
+    if (notificationId) {
+      console.info(
+        `[notifications] created notification(s) (${input.type}: ${input.contentTitle.trim()})`
+      );
+    }
+    return notificationId;
+  } catch (error) {
+    console.error("[notifications] failed to create notification", error, input);
+    throw error;
+  }
 }
 
 export function getNotificationContentPath(
   notification: Pick<FirebaseNotification, "type" | "contentId">
 ): string {
+  if (notification.type === "prayer_request_submitted") {
+    return "/dashboard/content?tab=prayers";
+  }
+  if (notification.type === "membership_approved") {
+    return "/dashboard";
+  }
   const preset = NOTIFICATION_PRESETS[notification.type] ?? NOTIFICATION_PRESETS.song;
   return `${preset.pathPrefix}/${encodeURIComponent(notification.contentId)}`;
 }
@@ -99,52 +191,14 @@ export function getNotificationTypeLabel(type: NotificationContentType): string 
   return (NOTIFICATION_PRESETS[type] ?? NOTIFICATION_PRESETS.song).title;
 }
 
-/**
- * Creates a single in-app notification document for newly published content.
- * Throws on failure so callers can log/handle; use a wrapper if the failure
- * must not block the surrounding operation.
- */
-export async function createPublishNotification(input: {
-  type: NotificationContentType;
-  contentId: string;
-  contentTitle: string;
-  image?: string;
-}): Promise<string | null> {
-  if (!input.contentId.trim() || !input.contentTitle.trim()) {
-    console.warn("[notifications] skipped — missing contentId or contentTitle", input);
-    return null;
-  }
-
-  const preset = NOTIFICATION_PRESETS[input.type] ?? NOTIFICATION_PRESETS.song;
-
-  const payload = {
-    type: input.type,
-    title: preset.title,
-    message: preset.message,
-    contentTitle: input.contentTitle.trim(),
-    image: input.image?.trim() || "",
-    contentId: input.contentId,
-    createdAt: serverTimestamp(),
-  };
-
-  try {
-    const ref = await addDoc(collection(db, NOTIFICATIONS_COLLECTION), payload);
-    console.info(
-      `[notifications] created ${ref.id} (${payload.type}: ${payload.contentTitle})`
-    );
-    return ref.id;
-  } catch (error) {
-    console.error("[notifications] failed to create notification", error, payload);
-    throw error;
-  }
-}
-
 export function subscribeToNotifications(
+  userId: string,
   onChange: (notifications: FirebaseNotification[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   const notificationsQuery = query(
     collection(db, NOTIFICATIONS_COLLECTION),
+    where("userId", "==", userId),
     orderBy("createdAt", "desc"),
     limit(30)
   );

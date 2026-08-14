@@ -11,7 +11,7 @@ import {
   getArticleNeighbors,
   getRelatedArticles,
 } from "@/lib/article-utils";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import {
   getArticleByIdCached,
   getPublishedArticlesCached,
@@ -32,8 +32,8 @@ type ArticlePageProps = {
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
   const { id } = await params;
   const decodedId = decodeURIComponent(id);
-  const { churchId } = await getPageChurchContext();
-  const article = await getArticleByIdCached(churchId, decodedId);
+  const { scope } = await getPageTenantContext();
+  const article = await getArticleByIdCached(scope, decodedId);
 
   if (!article || !article.isPublished) {
     return { title: "Article Not Found" };
@@ -64,10 +64,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
-  const { churchId } = await getPageChurchContext();
+  const { scope } = await getPageTenantContext();
   const [article, allPublished] = await Promise.all([
-    getArticleByIdCached(churchId, decodedId),
-    getPublishedArticlesCached(churchId),
+    getArticleByIdCached(scope, decodedId),
+    getPublishedArticlesCached(scope),
   ]);
 
   if (!article || !article.isPublished) {

@@ -14,7 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
+import { WorkspaceChurchRequiredNotice } from "@/components/workspace/workspace-church-required-notice";
 import { usePublishedEvents } from "@/hooks/use-published-events";
+import { useContentTenantScope } from "@/hooks/use-workspace-tenant-scope";
 import { contentCardGridClassName } from "@/lib/responsive-classes";
 
 type EventsListClientProps = {
@@ -35,11 +38,13 @@ export function EventsListClient({
     () => [...initialUpcoming, ...initialPast],
     [initialUpcoming, initialPast]
   );
-  const { grouped, loading } = usePublishedEvents(initialCombined);
+  const { grouped, loading, loadMore, hasMore, loadingMore } =
+    usePublishedEvents(initialCombined);
+  const tenantScope = useContentTenantScope();
   const { upcoming, past } = grouped;
 
   const [search, setSearch] = useState("");
-  const [scope, setScope] = useState<string>("all");
+  const [scheduleFilter, setScheduleFilter] = useState<string>("all");
 
   const query = search.trim().toLowerCase();
 
@@ -52,6 +57,10 @@ export function EventsListClient({
     [past, query]
   );
 
+  if (tenantScope.blocked) {
+    return <WorkspaceChurchRequiredNotice />;
+  }
+
   if (loading && upcoming.length === 0 && past.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/50 py-16">
@@ -60,8 +69,8 @@ export function EventsListClient({
     );
   }
 
-  const showUpcoming = scope === "all" || scope === "upcoming";
-  const showPast = scope === "all" || scope === "past";
+  const showUpcoming = scheduleFilter === "all" || scheduleFilter === "upcoming";
+  const showPast = scheduleFilter === "all" || scheduleFilter === "past";
   const noResults =
     (showUpcoming ? filteredUpcoming.length : 0) +
       (showPast ? filteredPast.length : 0) ===
@@ -74,7 +83,7 @@ export function EventsListClient({
         onSearchChange={setSearch}
         searchPlaceholder="Search events…"
       >
-        <Select value={scope} onValueChange={setScope}>
+        <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
           <SelectTrigger className="w-full min-w-0 sm:w-[10rem] rounded-full">
             <SelectValue placeholder="Schedule" />
           </SelectTrigger>
@@ -109,6 +118,12 @@ export function EventsListClient({
           : null}
         </div>
       }
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   );
 }

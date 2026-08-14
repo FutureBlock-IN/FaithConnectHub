@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { HomeAdminFab } from "@/components/home-admin-fab";
 import { HomeHeroSection } from "@/components/home/home-hero-section";
 import { HomeSongsSection } from "@/components/home/home-songs-section";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import { getPublishedSongsCached } from "@/lib/cached-worship-data";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -21,8 +21,8 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function HomePage() {
-  const { churchId, church } = await getPageChurchContext();
-  const songs = await getPublishedSongsCached(churchId);
+  const { scope, church } = await getPageTenantContext();
+  const songs = await getPublishedSongsCached(scope);
 
   return (
     <div className="space-y-4 sm:space-y-8 md:space-y-10">

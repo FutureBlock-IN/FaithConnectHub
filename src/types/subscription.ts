@@ -53,7 +53,10 @@ export type FeatureFlagKey = keyof SubscriptionFeatureFlags;
 
 export type ChurchSubscription = {
   id: string;
-  churchId: string;
+  /** Organization that owns billing — primary tenant key for subscriptions. */
+  organizationId: string;
+  /** @deprecated Legacy per-church subscriptions — use organizationId */
+  churchId?: string;
   planId: PlanId;
   status: SubscriptionStatus;
   billingInterval?: BillingInterval;

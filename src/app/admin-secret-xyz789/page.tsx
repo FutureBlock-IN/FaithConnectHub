@@ -54,27 +54,19 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [adminChurchId]);
 
-  function handleAddMusic() {
-    console.log("[AdminPage] Opening Add Music modal");
-    setSelectedSong(null);
+  function handleAddMusic() {    setSelectedSong(null);
     setIsModalOpen(true);
   }
 
-  function handleEditSong(song: FirebaseSong) {
-    console.log("[AdminPage] Opening Edit modal for song:", song.id);
-    setSelectedSong(song);
+  function handleEditSong(song: FirebaseSong) {    setSelectedSong(song);
     setIsModalOpen(true);
   }
 
-  function handleCloseModal() {
-    console.log("[AdminPage] Closing modal");
-    setIsModalOpen(false);
+  function handleCloseModal() {    setIsModalOpen(false);
     setSelectedSong(null);
   }
 
-  function handleSongSaved() {
-    console.log("[AdminPage] Song saved, closing modal");
-    handleCloseModal();
+  function handleSongSaved() {    handleCloseModal();
   }
 
   return (

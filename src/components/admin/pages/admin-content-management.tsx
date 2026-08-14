@@ -38,7 +38,7 @@ export function AdminContentManagementClient() {
     (value: string) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", value);
-      router.replace(`/admin-worship-panel/content?${params.toString()}`, {
+      router.replace(`/dashboard/content?${params.toString()}`, {
         scroll: false,
       });
     },
@@ -54,8 +54,8 @@ export function AdminContentManagementClient() {
   return (
     <div className={adminSectionClass}>
       <AdminPageHeader
-        title="Content"
-        description="Search, filter, edit, delete, and moderate all platform content in one place."
+        title="Content Management"
+        description="Add, edit and manage all your church content"
       />
 
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-4">

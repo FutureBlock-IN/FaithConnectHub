@@ -27,7 +27,9 @@ import {
 } from "@/components/ui/dialog";
 import { addSong, updateSong } from "@/lib/firebase-queries";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { useSubscriptionOptional } from "@/context/subscription-context";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import { notifyIfNewlyPublished } from "@/lib/notify-if-published";
 import { SONG_CATEGORIES } from "@/types/firebase-song";
 import { uploadSongFileLocal } from "@/lib/local-upload";
@@ -151,7 +153,9 @@ export function AddMusicModal({
   churchId,
 }: AddMusicModalProps) {
   const { user } = useFirebaseAuth();
+  const { invalidateSongs } = useInvalidateAdminQueries();
   const subscription = useSubscriptionOptional();
+  const tenantFields = useTenantNotifyFields();
   const [formData, setFormData] = useState<SongFormData>(EMPTY_FORM);
   const [files, setFiles] = useState<{ cover?: File; audio?: File }>({});
   const [coverPreview, setCoverPreview] = useState("");
@@ -215,6 +219,7 @@ export function AddMusicModal({
     songId: string,
     fileType: "cover" | "audio",
     file: File,
+    idToken: string,
     onProgress?: (percent: number) => void
   ): Promise<string> {
     onProgress?.(10);
@@ -223,7 +228,7 @@ export function AddMusicModal({
     onProgress?.(30);
     return uploadSongFileLocal(songId, fileType, fd, (percent) => {
       onProgress?.(30 + percent * 0.7);
-    });
+    }, idToken);
   }
 
   function buildSongPayload() {
@@ -279,6 +284,10 @@ export function AddMusicModal({
 
     try {
       const idToken = user ? await user.getIdToken() : undefined;
+      if (!idToken) {
+        toast.error("You must be signed in to upload files.");
+        return;
+      }
       const payload = buildSongPayload();
       const wasPublished = initialSong?.published !== false;
 
@@ -291,6 +300,7 @@ export function AddMusicModal({
             initialSong.id,
             "cover",
             files.cover,
+            idToken,
             (p) => setUploadProgress((prev) => ({ ...prev, cover: p }))
           );
         }
@@ -299,6 +309,7 @@ export function AddMusicModal({
             initialSong.id,
             "audio",
             files.audio,
+            idToken,
             (p) => setUploadProgress((prev) => ({ ...prev, audio: p }))
           );
         }
@@ -315,15 +326,20 @@ export function AddMusicModal({
             isPublished: true,
             wasPublished,
             idToken,
+            churchId: tenantFields.churchId ?? churchId,
+            organizationId: tenantFields.organizationId,
           });
         }
 
         toast.success("Song updated successfully");
       } else {
-        const songId = await addSong(churchId, {
+        const songId = await addSong(tenantFields.churchId ?? churchId, {
           ...payload,
           imageUrl: "",
           audioUrl: "",
+        }, {
+          branchId: tenantFields.branchId,
+          organizationIdFallback: tenantFields.organizationId,
         });
 
         const mediaUpdates: { imageUrl?: string; audioUrl?: string } = {};
@@ -332,6 +348,7 @@ export function AddMusicModal({
             songId,
             "cover",
             files.cover,
+            idToken,
             (p) => setUploadProgress((prev) => ({ ...prev, cover: p }))
           );
         }
@@ -340,6 +357,7 @@ export function AddMusicModal({
             songId,
             "audio",
             files.audio,
+            idToken,
             (p) => setUploadProgress((prev) => ({ ...prev, audio: p }))
           );
         }
@@ -354,11 +372,14 @@ export function AddMusicModal({
           image: mediaUpdates.imageUrl ?? "",
           isPublished: payload.published,
           idToken,
+          churchId: tenantFields.churchId ?? churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Song added successfully");
       }
 
+      await invalidateSongs();
       onSave();
       setFormData(EMPTY_FORM);
       setFiles({});

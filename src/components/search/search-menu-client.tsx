@@ -12,6 +12,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useEventListener } from "@/hooks/use-event-listner";
 import { useIsTyping } from "@/hooks/use-store";
 import { fetchWorshipCatalogAction } from "@/lib/actions/worship-catalog";
+import type { TenantScope } from "@/lib/organization/tenant-scope";
 import { getGlobalSearchPlaceholder } from "@/lib/worship-collection";
 import { cn, isMacOs } from "@/lib/utils";
 
@@ -32,7 +33,7 @@ const EMPTY_CATALOG: WorshipCatalog = {
 
 export type SearchMenuProps = {
   className?: string;
-  churchId: string;
+  scope: TenantScope;
   placeholder?: string;
   enableShortcut?: boolean;
 };
@@ -72,7 +73,7 @@ function SearchMenuTrigger({
 }
 
 export function SearchMenuClient({
-  churchId,
+  scope,
   className,
   placeholder,
   enableShortcut = true,
@@ -116,7 +117,7 @@ export function SearchMenuClient({
     if (catalogLoaded || catalogLoading) return;
     setCatalogLoading(true);
     try {
-      const nextCatalog = await fetchWorshipCatalogAction(churchId);
+      const nextCatalog = await fetchWorshipCatalogAction(scope);
       setCatalog(nextCatalog);
       setCatalogLoaded(true);
     } catch {
@@ -124,7 +125,7 @@ export function SearchMenuClient({
     } finally {
       setCatalogLoading(false);
     }
-  }, [catalogLoaded, catalogLoading, churchId]);
+  }, [catalogLoaded, catalogLoading, scope]);
 
   useEffect(() => {
     if (isOpen) {

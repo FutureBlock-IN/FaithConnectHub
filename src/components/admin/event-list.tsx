@@ -19,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import { DEFAULT_SONG_COVER } from "@/config/site";
 import { formatEventDate } from "@/lib/event-firestore";
 import { deleteEvent, updateEvent } from "@/lib/event-mutations";
+import { notifyIfEventPublished } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import { getSongCoverUrl } from "@/lib/utils";
 
 type EventListProps = {
@@ -34,6 +37,8 @@ export function EventList({
   onEdit,
   onDelete,
 }: EventListProps) {
+  const { user } = useFirebaseAuth();
+  const tenantFields = useTenantNotifyFields();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selected, setSelected] = useState<FirebaseEvent | null>(null);
@@ -59,6 +64,19 @@ export function EventList({
     setPublishing(event.id);
     try {
       await updateEvent(event.id, { status: "published" });
+
+      const idToken = user ? await user.getIdToken() : undefined;
+      await notifyIfEventPublished({
+        contentId: event.id,
+        contentTitle: event.title,
+        image: event.bannerImage,
+        status: "published",
+        wasStatus: event.status,
+        idToken,
+        churchId: event.churchId,
+        organizationId: tenantFields.organizationId,
+      });
+
       toast.success("Event published");
     } catch {
       toast.error("Failed to publish event");
@@ -86,7 +104,7 @@ export function EventList({
             <CalendarDays className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-sm font-medium">No events yet</p>
+            <p className="text-sm font-medium">No events have been created for this church yet.</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Create your first ministry event to get started.
             </p>

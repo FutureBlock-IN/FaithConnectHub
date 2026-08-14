@@ -9,6 +9,7 @@ import { AdminChurchNotice } from "@/components/admin/admin-church-notice";
 import { AdminListPagination } from "@/components/admin/admin-list-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminToolbar } from "@/components/admin/admin-toolbar";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { adminSectionClass } from "@/lib/responsive-classes";
 import {
   Select,
@@ -22,6 +23,7 @@ import {
   useAdminChurchId,
   useAdminSermons,
 } from "@/hooks/use-admin-collections";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import {
   filterByPublishStatus,
   filterBySearch,
@@ -40,7 +42,9 @@ export function AdminSermonsPageClient({ embedded = false }: { embedded?: boolea
   const searchParams = useSearchParams();
   const adminChurchId = useAdminChurchId();
   const blocked = useAdminChurchBlocked();
-  const { data: sermons, loading } = useAdminSermons();
+  const { data: sermons, loading, loadMore, hasMore, loadingMore } =
+    useAdminSermons();
+  const { invalidateSermons } = useInvalidateAdminQueries();
 
   const [search, setSearch] = useState("");
   const [publishFilter, setPublishFilter] = useState<PublishFilter>("all");
@@ -54,8 +58,18 @@ export function AdminSermonsPageClient({ embedded = false }: { embedded?: boolea
     if (searchParams.get("create") === "1") {
       setSelectedSermon(null);
       setModalOpen(true);
+      return;
     }
-  }, [searchParams]);
+
+    const editId = searchParams.get("edit")?.trim();
+    if (!editId || loading) return;
+
+    const sermon = sermons.find((item) => item.id === editId);
+    if (sermon) {
+      setSelectedSermon(sermon);
+      setModalOpen(true);
+    }
+  }, [searchParams, sermons, loading]);
 
   useEffect(() => {
     setPage(1);
@@ -137,7 +151,7 @@ export function AdminSermonsPageClient({ embedded = false }: { embedded?: boolea
           setSelectedSermon(sermon);
           setModalOpen(true);
         }}
-        onDelete={() => {}}
+        onDelete={() => void invalidateSermons()}
       />
 
       <AdminListPagination
@@ -145,6 +159,12 @@ export function AdminSermonsPageClient({ embedded = false }: { embedded?: boolea
         totalPages={totalPages}
         totalItems={filteredSermons.length}
         onPageChange={setPage}
+      />
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
       />
 
       <AddSermonModal

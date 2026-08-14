@@ -1,6 +1,7 @@
 import React from "react";
 import { cookies } from "next/headers";
 
+import { WelcomeMemberBanner } from "@/components/auth/welcome-member-banner";
 import { AppSidebar } from "@/components/app-sidebar/app-sidebar";
 import { AppSiteHeader } from "@/components/app-sidebar/app-site-header";
 import { pageShellClass } from "@/lib/responsive-classes";
@@ -16,6 +17,7 @@ export default async function Layout({ children }: React.PropsWithChildren) {
       <SidebarInset className="min-w-0">
         <AppSiteHeader />
         <div className={pageShellClass}>
+          <WelcomeMemberBanner />
           {children}
         </div>
       </SidebarInset>

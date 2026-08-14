@@ -14,10 +14,12 @@ export type VerifiedAdminContext = {
   email: string;
   isSuperAdmin: boolean;
   churchScope: string | null;
+  organizationScope: string | null;
 };
 
 type UserProfileRecord = {
   churchId?: string;
+  organizationId?: string;
   churchRole?: ChurchRole;
   managedChurchIds?: string[];
   role?: UserRole;
@@ -25,7 +27,8 @@ type UserProfileRecord = {
 
 export async function verifyAdminAnalyticsRequest(
   request: Request,
-  requestedChurchId?: string | null
+  requestedChurchId?: string | null,
+  requestedOrganizationId?: string | null
 ): Promise<
   | { ok: true; admin: VerifiedAdminContext }
   | { ok: false; status: number; error: string }
@@ -81,11 +84,15 @@ export async function verifyAdminAnalyticsRequest(
   }
 
   const managedChurchId = getManagedChurchIdForUser(accessUser);
+  const organizationId = String(profile.organizationId ?? "").trim();
   const churchScope = superAdmin
     ? requestedChurchId?.trim() || null
     : managedChurchId;
+  const organizationScope =
+    requestedOrganizationId?.trim() ||
+    (!churchScope && organizationId ? organizationId : null);
 
-  if (!superAdmin && !churchScope) {
+  if (!superAdmin && !churchScope && !organizationScope) {
     return {
       ok: false,
       status: 403,
@@ -100,6 +107,7 @@ export async function verifyAdminAnalyticsRequest(
       email,
       isSuperAdmin: superAdmin,
       churchScope,
+      organizationScope,
     },
   };
 }

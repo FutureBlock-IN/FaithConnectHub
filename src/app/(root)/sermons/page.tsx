@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { SermonsTabContent } from "@/components/worship/sermons-tab-content";
 import { SermonsAdminBar } from "@/components/admin/inline/sermons-admin-bar";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import { getPublishedSermonsCached } from "@/lib/cached-worship-data";
 import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
@@ -18,8 +18,8 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function SermonsPage() {
-  const { churchId } = await getPageChurchContext();
-  const sermons = await getPublishedSermonsCached(churchId);
+  const { scope } = await getPageTenantContext();
+  const sermons = await getPublishedSermonsCached(scope);
 
   return (
     <section
@@ -38,7 +38,7 @@ export default async function SermonsPage() {
             Messages to strengthen your faith and deepen your walk with God.
           </p>
         </div>
-        <SermonsAdminBar churchId={churchId} />
+        <SermonsAdminBar churchId={scope.churchId ?? ""} />
       </header>
 
       <SermonsTabContent initialSermons={sermons} />

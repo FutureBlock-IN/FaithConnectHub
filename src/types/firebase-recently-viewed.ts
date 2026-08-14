@@ -1,6 +1,4 @@
-import type { FavoriteItemType } from "@/types/firebase-favorite";
-
-export type RecentlyViewedItemType = FavoriteItemType;
+export type RecentlyViewedItemType = "song" | "sermon" | "article";
 
 export type FirebaseRecentlyViewed = {
   id: string;

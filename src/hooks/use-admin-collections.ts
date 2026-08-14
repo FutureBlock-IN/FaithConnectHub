@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { toast } from "sonner";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  collection,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
 
 import type { FirebaseArticle } from "@/types/firebase-article";
 import type { FirebaseChurch } from "@/types/firebase-church";
@@ -20,8 +27,11 @@ import {
   CHURCHES_COLLECTION,
   normalizeChurchFromFirestore,
 } from "@/lib/church-firestore";
-import { buildClientScopedQuery } from "@/lib/church-query-builder";
-import { filterRecordsByChurch } from "@/lib/church-scope";
+import {
+  useAdminChurchId,
+  useIsPlatformSuperAdmin,
+} from "@/hooks/use-admin-church-id";
+import { useWorkspaceTenantScope } from "@/hooks/use-workspace-tenant-scope";
 import {
   DONATION_CAMPAIGNS_COLLECTION,
   DONATIONS_COLLECTION,
@@ -36,234 +46,110 @@ import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { db } from "@/lib/firebase";
 import { normalizePrayerRequestFromFirestore } from "@/lib/prayer-request-firestore";
 import {
+  MEMBERS_LIST_LIMIT,
+  QUERY_GC_TIME,
+  QUERY_STALE_TIME,
+} from "@/lib/react-query-config";
+import {
   LEGACY_SERMONS_COLLECTION,
   SERMONS_COLLECTION,
   mergeSermonsById,
   normalizeSermonFromFirestore,
 } from "@/lib/sermon-firestore";
 import { normalizeSongFromFirestore } from "@/lib/song-firestore";
-import {
-  useAdminChurchId,
-  useIsPlatformSuperAdmin,
-} from "@/hooks/use-admin-church-id";
+
+import { useTenantListQuery } from "./use-tenant-list-query";
+import { normalizeUserCreatedAt } from "@/lib/admin-analytics-utils";
 
 type CollectionState<T> = {
   data: T[];
   loading: boolean;
   error: string | null;
+  loadMore?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 };
 
-function useChurchScopeGuard(): {
-  adminChurchId: string | null;
-  blocked: boolean;
-} {
-  const adminChurchId = useAdminChurchId();
-  const blocked = MULTI_CHURCH_ENABLED && !adminChurchId;
-  return { adminChurchId, blocked };
+export type AdminUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: number;
+};
+
+function mapUserDocToRow(id: string, data: Record<string, unknown>): AdminUserRow {
+  const firstName = String(data.firstName ?? "").trim();
+  const lastName = String(data.lastName ?? "").trim();
+  const name = [firstName, lastName].filter(Boolean).join(" ") || "Member";
+
+  return {
+    id,
+    name,
+    email: String(data.email ?? "").trim(),
+    role: String(data.role ?? "user").trim(),
+    createdAt: normalizeUserCreatedAt(data.createdAt),
+  };
 }
 
 export function useAdminSongs(): CollectionState<FirebaseSong> {
-  const { adminChurchId, blocked } = useChurchScopeGuard();
-  const [data, setData] = useState<FirebaseSong[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (blocked) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const songsQuery = buildClientScopedQuery(
-      collection(db, "songs"),
-      adminChurchId,
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe = onSnapshot(
-      songsQuery,
-      (snapshot) => {
-        setData(
-          snapshot.docs.map((docSnap) =>
-            normalizeSongFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
-          )
-        );
-        setLoading(false);
-        setError(null);
-      },
-      () => {
-        toast.error("Unable to sync songs");
-        setLoading(false);
-        setError("Unable to sync data. Please refresh and try again.");
-      }
-    );
-
-    return () => unsubscribe();
-  }, [adminChurchId, blocked]);
-
-  return { data, loading, error };
+  return useTenantListQuery({
+    queryKey: "admin-songs",
+    collectionName: "songs",
+    orderField: "createdAt",
+    normalize: normalizeSongFromFirestore,
+  });
 }
 
 export function useAdminSermons(): CollectionState<FirebaseSermon> {
-  const { adminChurchId, blocked } = useChurchScopeGuard();
-  const [data, setData] = useState<FirebaseSermon[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const sermonSnapshotsRef = useRef<Record<string, FirebaseSermon[]>>({});
+  const primary = useTenantListQuery({
+    queryKey: "admin-sermons",
+    collectionName: SERMONS_COLLECTION,
+    orderField: "dateCreated",
+    normalize: normalizeSermonFromFirestore,
+  });
+  const legacy = useTenantListQuery({
+    queryKey: "admin-sermons-legacy",
+    collectionName: LEGACY_SERMONS_COLLECTION,
+    orderField: "dateCreated",
+    normalize: normalizeSermonFromFirestore,
+  });
 
-  useEffect(() => {
-    if (blocked) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
+  const data = useMemo(
+    () => mergeSermonsById([primary.data, legacy.data]),
+    [primary.data, legacy.data]
+  );
 
-    setLoading(true);
-    sermonSnapshotsRef.current = {};
-    const scopedChurchId = adminChurchId;
-
-    function publishMerged() {
-      const merged = mergeSermonsById(
-        Object.values(sermonSnapshotsRef.current)
-      );
-      setData(filterRecordsByChurch(merged, scopedChurchId ?? ""));
-      setLoading(false);
-      setError(null);
-    }
-
-    const unsubscribes = [SERMONS_COLLECTION, LEGACY_SERMONS_COLLECTION].map(
-      (collectionName) => {
-        const sermonsQuery = buildClientScopedQuery(
-          collection(db, collectionName),
-          scopedChurchId,
-          orderBy("dateCreated", "desc")
-        );
-
-        return onSnapshot(
-          sermonsQuery,
-          (snapshot) => {
-            sermonSnapshotsRef.current[collectionName] = snapshot.docs.map(
-              (docSnap) =>
-                normalizeSermonFromFirestore(
-                  docSnap.id,
-                  docSnap.data() as Record<string, unknown>
-                )
-            );
-            publishMerged();
-          },
-          () => {
-            sermonSnapshotsRef.current[collectionName] = [];
-            publishMerged();
-            toast.error("Unable to sync sermons");
-            setError("Unable to sync data. Please refresh and try again.");
-          }
-        );
-      }
-    );
-
-    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [adminChurchId, blocked]);
-
-  return { data, loading, error };
+  return {
+    data,
+    loading: primary.loading || legacy.loading,
+    error: primary.error ?? legacy.error,
+    loadMore: () => {
+      void primary.loadMore();
+      void legacy.loadMore();
+    },
+    hasMore: primary.hasMore || legacy.hasMore,
+    loadingMore: primary.loadingMore || legacy.loadingMore,
+  };
 }
 
 export function useAdminArticles(): CollectionState<FirebaseArticle> {
-  const { adminChurchId, blocked } = useChurchScopeGuard();
-  const [data, setData] = useState<FirebaseArticle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (blocked) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const articlesQuery = buildClientScopedQuery(
-      collection(db, "articles"),
-      adminChurchId,
-      orderBy("dateCreated", "desc")
-    );
-
-    const unsubscribe = onSnapshot(
-      articlesQuery,
-      (snapshot) => {
-        setData(
-          snapshot.docs.map((docSnap) =>
-            normalizeArticleFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
-          )
-        );
-        setLoading(false);
-        setError(null);
-      },
-      () => {
-        toast.error("Unable to sync articles");
-        setLoading(false);
-        setError("Unable to sync data. Please refresh and try again.");
-      }
-    );
-
-    return () => unsubscribe();
-  }, [adminChurchId, blocked]);
-
-  return { data, loading, error };
+  return useTenantListQuery({
+    queryKey: "admin-articles",
+    collectionName: "articles",
+    orderField: "dateCreated",
+    normalize: normalizeArticleFromFirestore,
+  });
 }
 
 export function useAdminEvents(): CollectionState<FirebaseEvent> {
-  const { adminChurchId, blocked } = useChurchScopeGuard();
-  const [data, setData] = useState<FirebaseEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (blocked) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const eventsQuery = buildClientScopedQuery(
-      collection(db, EVENTS_COLLECTION),
-      adminChurchId,
-      orderBy("eventDate", "desc")
-    );
-
-    const unsubscribe = onSnapshot(
-      eventsQuery,
-      (snapshot) => {
-        setData(
-          snapshot.docs.map((docSnap) =>
-            normalizeEventFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
-          )
-        );
-        setLoading(false);
-        setError(null);
-      },
-      () => {
-        toast.error("Unable to sync events");
-        setLoading(false);
-        setError("Unable to sync data. Please refresh and try again.");
-      }
-    );
-
-    return () => unsubscribe();
-  }, [adminChurchId, blocked]);
-
-  return { data, loading, error };
+  return useTenantListQuery({
+    queryKey: "admin-events",
+    collectionName: EVENTS_COLLECTION,
+    orderField: "eventDate",
+    orderDirection: "desc",
+    normalize: normalizeEventFromFirestore,
+  });
 }
 
 export function useAdminDonations(): {
@@ -271,174 +157,114 @@ export function useAdminDonations(): {
   donations: FirebaseDonation[];
   loading: boolean;
   error: string | null;
+  loadMore?: () => void;
+  hasMore?: boolean;
 } {
-  const { adminChurchId, blocked } = useChurchScopeGuard();
-  const [campaigns, setCampaigns] = useState<FirebaseDonationCampaign[]>([]);
-  const [donations, setDonations] = useState<FirebaseDonation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const campaigns = useTenantListQuery({
+    queryKey: "admin-donation-campaigns",
+    collectionName: DONATION_CAMPAIGNS_COLLECTION,
+    orderField: "createdAt",
+    normalize: normalizeDonationCampaignFromFirestore,
+  });
+  const donations = useTenantListQuery({
+    queryKey: "admin-donations",
+    collectionName: DONATIONS_COLLECTION,
+    orderField: "createdAt",
+    normalize: normalizeDonationFromFirestore,
+  });
 
-  useEffect(() => {
-    if (blocked) {
-      setCampaigns([]);
-      setDonations([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const campaignsQuery = buildClientScopedQuery(
-      collection(db, DONATION_CAMPAIGNS_COLLECTION),
-      adminChurchId,
-      orderBy("createdAt", "desc")
-    );
-    const donationsQuery = buildClientScopedQuery(
-      collection(db, DONATIONS_COLLECTION),
-      adminChurchId,
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribeCampaigns = onSnapshot(
-      campaignsQuery,
-      (snapshot) => {
-        setCampaigns(
-          snapshot.docs.map((docSnap) =>
-            normalizeDonationCampaignFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
-          )
-        );
-        setLoading(false);
-        setError(null);
-      },
-      () => {
-        toast.error("Unable to sync donation campaigns");
-        setLoading(false);
-        setError("Unable to sync data. Please refresh and try again.");
-      }
-    );
-
-    const unsubscribeDonations = onSnapshot(
-      donationsQuery,
-      (snapshot) => {
-        setDonations(
-          snapshot.docs.map((docSnap) =>
-            normalizeDonationFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
-          )
-        );
-      },
-      () => toast.error("Unable to sync donations")
-    );
-
-    return () => {
-      unsubscribeCampaigns();
-      unsubscribeDonations();
-    };
-  }, [adminChurchId, blocked]);
-
-  return { campaigns, donations, loading, error };
+  return {
+    campaigns: campaigns.data,
+    donations: donations.data,
+    loading: campaigns.loading || donations.loading,
+    error: campaigns.error ?? donations.error,
+    loadMore: () => {
+      void campaigns.loadMore();
+      void donations.loadMore();
+    },
+    hasMore: campaigns.hasMore || donations.hasMore,
+  };
 }
 
 export function useAdminPrayerRequests(): CollectionState<FirebasePrayerRequest> {
-  const { adminChurchId, blocked } = useChurchScopeGuard();
-  const [data, setData] = useState<FirebasePrayerRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (blocked) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const prayersQuery = buildClientScopedQuery(
-      collection(db, "prayerRequests"),
-      adminChurchId,
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe = onSnapshot(
-      prayersQuery,
-      (snapshot) => {
-        setData(
-          snapshot.docs.map((docSnap) =>
-            normalizePrayerRequestFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
-          )
-        );
-        setLoading(false);
-        setError(null);
-      },
-      () => {
-        toast.error("Unable to sync prayer requests");
-        setLoading(false);
-        setError("Unable to sync data. Please refresh and try again.");
-      }
-    );
-
-    return () => unsubscribe();
-  }, [adminChurchId, blocked]);
-
-  return { data, loading, error };
+  return useTenantListQuery({
+    queryKey: "admin-prayer-requests",
+    collectionName: "prayerRequests",
+    orderField: "createdAt",
+    churchScopeOnly: true,
+    normalize: normalizePrayerRequestFromFirestore,
+  });
 }
 
 export function useAdminChurches(): CollectionState<FirebaseChurch> {
   const isSuperAdmin = useIsPlatformSuperAdmin();
-  const [data, setData] = useState<FirebaseChurch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!MULTI_CHURCH_ENABLED || !isSuperAdmin) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ["admin-churches"],
+    enabled: MULTI_CHURCH_ENABLED && isSuperAdmin,
+    staleTime: QUERY_STALE_TIME,
+    gcTime: QUERY_GC_TIME,
+    queryFn: async () => {
+      const churchesQuery = query(
+        collection(db, CHURCHES_COLLECTION),
+        orderBy("name", "asc"),
+        limit(50)
+      );
+      const snapshot = await getDocs(churchesQuery);
+      return snapshot.docs.map((docSnap) =>
+        normalizeChurchFromFirestore(
+          docSnap.id,
+          docSnap.data() as Record<string, unknown>
+        )
+      );
+    },
+  });
 
-    setLoading(true);
-    const churchesQuery = query(
-      collection(db, CHURCHES_COLLECTION),
-      orderBy("name", "asc")
-    );
+  return {
+    data,
+    loading: isLoading,
+    error: error ? "Unable to sync data. Please refresh and try again." : null,
+  };
+}
 
-    const unsubscribe = onSnapshot(
-      churchesQuery,
-      (snapshot) => {
-        setData(
-          snapshot.docs.map((docSnap) =>
-            normalizeChurchFromFirestore(
-              docSnap.id,
-              docSnap.data() as Record<string, unknown>
-            )
+export function useAdminUsers() {
+  const adminChurchId = useAdminChurchId();
+  const isSuperAdmin = useIsPlatformSuperAdmin();
+  const churchScope = isSuperAdmin ? null : adminChurchId?.trim() || null;
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["admin-users", churchScope, isSuperAdmin],
+    enabled: isSuperAdmin || Boolean(churchScope),
+    staleTime: QUERY_STALE_TIME,
+    gcTime: QUERY_GC_TIME,
+    queryFn: async () => {
+      const usersCollection = collection(db, "users");
+      const usersQuery = churchScope
+        ? query(
+            usersCollection,
+            where("churchId", "==", churchScope),
+            orderBy("createdAt", "desc"),
+            limit(MEMBERS_LIST_LIMIT)
           )
-        );
-        setLoading(false);
-        setError(null);
-      },
-      () => {
-        toast.error("Unable to sync churches");
-        setLoading(false);
-        setError("Unable to sync data. Please refresh and try again.");
-      }
-    );
+        : query(
+            usersCollection,
+            orderBy("createdAt", "desc"),
+            limit(MEMBERS_LIST_LIMIT)
+          );
+      const snapshot = await getDocs(usersQuery);
+      return snapshot.docs.map((docSnap) =>
+        mapUserDocToRow(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
+    },
+  });
 
-    return () => unsubscribe();
-  }, [isSuperAdmin]);
-
-  return { data, loading, error };
+  return { users: data, loading: isLoading };
 }
 
 export function useAdminChurchBlocked(): boolean {
-  const { blocked } = useChurchScopeGuard();
-  return blocked;
+  const scope = useWorkspaceTenantScope();
+  const isSuperAdmin = useIsPlatformSuperAdmin();
+  return scope.blocked && !isSuperAdmin;
 }
 
 export { useAdminChurchId, useIsPlatformSuperAdmin };

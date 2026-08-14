@@ -62,14 +62,29 @@ const config: NextConfig = {
       },
       {
         source: "/admin/ceremonies",
-        destination: "/admin-worship-panel?tab=sermons",
+        destination: "/dashboard?tab=sermons",
+        permanent: true,
+      },
+      {
+        source: "/dashboard",
+        has: [{ type: "query", key: "tab", value: "ceremonies" }],
+        destination: "/dashboard?tab=sermons",
         permanent: true,
       },
       {
         source: "/admin-worship-panel",
-        has: [{ type: "query", key: "tab", value: "ceremonies" }],
-        destination: "/admin-worship-panel?tab=sermons",
+        destination: "/dashboard",
         permanent: true,
+      },
+      {
+        source: "/admin-worship-panel/:path*",
+        destination: "/dashboard/:path*",
+        permanent: true,
+      },
+      {
+        source: "/onboarding/invite-team",
+        destination: "/dashboard/organization?tab=invitations",
+        permanent: false,
       },
     ];
   },

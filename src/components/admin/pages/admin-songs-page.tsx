@@ -6,10 +6,14 @@ import { useSearchParams } from "next/navigation";
 
 import { MusicList } from "@/components/admin/music-list";
 import { AdminChurchNotice } from "@/components/admin/admin-church-notice";
+import { WorkspaceChurchRequiredNotice } from "@/components/workspace/workspace-church-required-notice";
+import { useOrganization } from "@/context/organization-context";
+import { isMultiChurchOrgWorkspace } from "@/lib/organization/workspace-type";
 import { AdminListPagination } from "@/components/admin/admin-list-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminToolbar } from "@/components/admin/admin-toolbar";
 import { FetchErrorBanner } from "@/components/ui/fetch-error-banner";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { adminSectionClass } from "@/lib/responsive-classes";
 import {
   Select,
@@ -23,6 +27,7 @@ import {
   useAdminChurchId,
   useAdminSongs,
 } from "@/hooks/use-admin-collections";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import {
   filterByPublishStatus,
   filterBySearch,
@@ -43,9 +48,12 @@ const AddMusicModal = dynamic(
 
 export function AdminSongsPageClient({ embedded = false }: { embedded?: boolean }) {
   const searchParams = useSearchParams();
+  const { organization } = useOrganization();
   const adminChurchId = useAdminChurchId();
   const blocked = useAdminChurchBlocked();
-  const { data: songs, loading, error } = useAdminSongs();
+  const { data: songs, loading, error, loadMore, hasMore, loadingMore } =
+    useAdminSongs();
+  const { invalidateSongs } = useInvalidateAdminQueries();
 
   const [search, setSearch] = useState("");
   const [publishFilter, setPublishFilter] = useState<PublishFilter>("all");
@@ -57,8 +65,18 @@ export function AdminSongsPageClient({ embedded = false }: { embedded?: boolean 
     if (searchParams.get("create") === "1") {
       setSelectedSong(null);
       setModalOpen(true);
+      return;
     }
-  }, [searchParams]);
+
+    const editId = searchParams.get("edit")?.trim();
+    if (!editId || loading) return;
+
+    const song = songs.find((item) => item.id === editId);
+    if (song) {
+      setSelectedSong(song);
+      setModalOpen(true);
+    }
+  }, [searchParams, songs, loading]);
 
   useEffect(() => {
     setPage(1);
@@ -101,7 +119,11 @@ export function AdminSongsPageClient({ embedded = false }: { embedded?: boolean 
         />
       : null}
 
-      {blocked ? <AdminChurchNotice /> : null}
+      {blocked ?
+        isMultiChurchOrgWorkspace(organization) ?
+          <WorkspaceChurchRequiredNotice />
+        : <AdminChurchNotice />
+      : null}
 
       {error ?
         <FetchErrorBanner message={error} />
@@ -144,7 +166,7 @@ export function AdminSongsPageClient({ embedded = false }: { embedded?: boolean 
           setSelectedSong(song);
           setModalOpen(true);
         }}
-        onDelete={() => {}}
+        onDelete={() => void invalidateSongs()}
       />
 
       <AdminListPagination
@@ -152,6 +174,12 @@ export function AdminSongsPageClient({ embedded = false }: { embedded?: boolean 
         totalPages={totalPages}
         totalItems={filteredSongs.length}
         onPageChange={setPage}
+      />
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
       />
 
       <AddMusicModal

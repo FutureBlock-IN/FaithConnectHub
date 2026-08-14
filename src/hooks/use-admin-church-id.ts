@@ -2,35 +2,31 @@
 
 import { useActiveChurch } from "@/context/active-church-context";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
-import {
-  getManagedChurchIdForUser,
-  isPlatformSuperAdmin,
-} from "@/lib/church-access";
-import {
-  getLegacyDefaultChurchId,
-  resolveChurchIdForWrite,
-} from "@/lib/church-scope";
-import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
+import { useOrganizationOptional } from "@/context/organization-context";
+import { isPlatformSuperAdmin } from "@/lib/church-access";
+import { getLegacyDefaultChurchId } from "@/lib/church-scope";
+import { resolveEffectiveChurchId } from "@/lib/organization/resolve-effective-church";
 
-/** Effective church scope for admin content management. */
+/**
+ * Effective church scope for workspace content queries.
+ * Uses profile church pointer (Firestore) — not legacy churchRole fields.
+ */
 export function useAdminChurchId(): string | null {
   const { authUser, profile } = useFirebaseAuth();
   const { activeChurchId } = useActiveChurch();
+  const organization = useOrganizationOptional();
 
-  if (!MULTI_CHURCH_ENABLED) return resolveChurchIdForWrite(null);
-
-  const accessUser = {
-    email: authUser?.email,
-    churchId: profile?.churchId,
-    churchRole: profile?.churchRole,
-    managedChurchIds: profile?.managedChurchIds,
-  };
+  const resolved = resolveEffectiveChurchId({
+    profile,
+    activeChurchId,
+    orgChurches: organization?.churches,
+  });
 
   if (isPlatformSuperAdmin(authUser?.email)) {
-    return activeChurchId ?? (getLegacyDefaultChurchId() || null);
+    return resolved || getLegacyDefaultChurchId() || null;
   }
 
-  return getManagedChurchIdForUser(accessUser);
+  return resolved || null;
 }
 
 export function useIsPlatformSuperAdmin(): boolean {

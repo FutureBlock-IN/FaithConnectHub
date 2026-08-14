@@ -23,7 +23,9 @@ import type {
 import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
 import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
-import { filterRecordsByChurch } from "./church-scope";
+import type { TenantScope } from "./organization/tenant-scope";
+import { mergeTenantFieldsIntoPayload } from "./organization/resolve-tenant-scope";
+import { fetchTenantCollection } from "./tenant-content-server";
 import {
   LEGACY_SERMONS_COLLECTION,
   SERMONS_COLLECTION,
@@ -164,14 +166,32 @@ async function getSermonDocRef(
   return null;
 }
 
-export async function getSermons(churchId: string): Promise<FirebaseSermon[]> {
-  return filterRecordsByChurch(await fetchAllSermons(), churchId);
+async function fetchAllSermonsForScope(scope: TenantScope): Promise<FirebaseSermon[]> {
+  const [primary, legacy] = await Promise.all([
+    fetchTenantCollection(
+      SERMONS_COLLECTION,
+      scope,
+      (id, data) => normalizeSermonFromFirestore(id, data),
+      { orderField: "dateCreated", defaultBranchId: scope.branchId ?? null }
+    ),
+    fetchTenantCollection(
+      LEGACY_SERMONS_COLLECTION,
+      scope,
+      (id, data) => normalizeSermonFromFirestore(id, data),
+      { orderField: "dateCreated", defaultBranchId: scope.branchId ?? null }
+    ),
+  ]);
+  return mergeSermonsById([primary, legacy]);
+}
+
+export async function getSermons(scope: TenantScope): Promise<FirebaseSermon[]> {
+  return fetchAllSermonsForScope(scope);
 }
 
 export async function getPublishedSermons(
-  churchId: string
+  scope: TenantScope
 ): Promise<FirebaseSermon[]> {
-  const sermons = filterRecordsByChurch(await fetchAllSermons(), churchId);
+  const sermons = await fetchAllSermonsForScope(scope);
   const published = sermons.filter((s) => s.isPublished);
   if (process.env.NODE_ENV !== "production") {
     console.info("[sermons] published count", {
@@ -246,13 +266,13 @@ export async function getSermonById(
 }
 
 export async function searchSermons(
-  churchId: string,
+  scope: TenantScope,
   searchQuery: string
 ): Promise<FirebaseSermon[]> {
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const sermons = await getPublishedSermons(churchId);
+  const sermons = await getPublishedSermons(scope);
   return sermons.filter((sermon) => {
     const haystack = [
       sermon.title,
@@ -271,8 +291,12 @@ export async function createSermon(
   sermonData: CreateSermonInput
 ): Promise<string> {
   const adminDb = getAdminDb();
+  const scopedPayload = await mergeTenantFieldsIntoPayload(
+    sermonData as Record<string, unknown>,
+    sermonData.churchId
+  );
   const payload = {
-    ...sermonData,
+    ...scopedPayload,
     dateCreated: FieldValue.serverTimestamp(),
   };
 
@@ -289,8 +313,12 @@ export async function createSermon(
   }
 
   try {
+    const clientPayload = await mergeTenantFieldsIntoPayload(
+      sermonData as Record<string, unknown>,
+      sermonData.churchId
+    );
     const docRef = await addDoc(collection(db, SERMONS_COLLECTION), {
-      ...sermonData,
+      ...clientPayload,
       dateCreated: Timestamp.now(),
     });
     return docRef.id;

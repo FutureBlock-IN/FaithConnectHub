@@ -5,93 +5,140 @@ import { CHURCHES_COLLECTION } from "@/lib/church-firestore";
 import { DONATION_CAMPAIGNS_COLLECTION } from "@/lib/donation-firestore";
 import { EVENTS_COLLECTION } from "@/lib/event-firestore";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { getChurchIdsForOrganization } from "@/lib/organization/resolve-tenant-scope";
 import { SERMONS_COLLECTION } from "@/lib/sermon-firestore";
 import { SONGS_COLLECTION } from "@/lib/song-firestore";
 import type { SubscriptionUsage } from "@/types/subscription";
 
 import { EMPTY_USAGE } from "./limits";
 
-async function countByChurchId(
+async function countByField(
   collection: string,
-  churchId: string
+  field: string,
+  value: string
+): Promise<number> {
+  const adminDb = getAdminDb();
+  if (!adminDb || !value.trim()) return 0;
+
+  const snap = await adminDb
+    .collection(collection)
+    .where(field, "==", value)
+    .count()
+    .get();
+
+  return snap.data().count;
+}
+
+async function countMembersForOrganization(
+  organizationId: string,
+  churchIds: string[]
+): Promise<number> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return 0;
+
+  const byOrg = await countByField("users", "organizationId", organizationId);
+  if (byOrg > 0) return byOrg;
+
+  if (churchIds.length === 0) return 0;
+
+  let total = 0;
+  for (const churchId of churchIds) {
+    total += await countByField("users", "churchId", churchId);
+  }
+  return total;
+}
+
+async function countAdminsForOrganization(
+  organizationId: string,
+  churchIds: string[]
 ): Promise<number> {
   const adminDb = getAdminDb();
   if (!adminDb) return 0;
 
   const snap = await adminDb
-    .collection(collection)
-    .where("churchId", "==", churchId)
-    .count()
+    .collection("memberships")
+    .where("organizationId", "==", organizationId)
+    .where("status", "==", "active")
     .get();
 
-  return snap.data().count;
+  const adminRoles = new Set([
+    "owner",
+    "org_admin",
+    "church_admin",
+    "editor",
+  ]);
+
+  const membershipAdmins = snap.docs.filter((doc) =>
+    adminRoles.has(String(doc.data().role ?? ""))
+  ).length;
+
+  if (membershipAdmins > 0) return membershipAdmins;
+
+  if (churchIds.length === 0) return 0;
+
+  let total = 0;
+  for (const churchId of churchIds) {
+    const churchAdmins = await adminDb
+      .collection("users")
+      .where("churchId", "==", churchId)
+      .where("churchRole", "==", "admin")
+      .count()
+      .get();
+    total += churchAdmins.data().count;
+  }
+  return total;
 }
 
-async function countMembers(churchId: string): Promise<number> {
-  const adminDb = getAdminDb();
-  if (!adminDb) return 0;
+async function countContentForOrganization(
+  collection: string,
+  organizationId: string,
+  churchIds: string[]
+): Promise<number> {
+  const byOrg = await countByField(collection, "organizationId", organizationId);
+  if (byOrg > 0) return byOrg;
 
-  const snap = await adminDb
-    .collection("users")
-    .where("churchId", "==", churchId)
-    .count()
-    .get();
+  if (churchIds.length === 0) return 0;
 
-  return snap.data().count;
+  let total = 0;
+  for (const churchId of churchIds) {
+    total += await countByField(collection, "churchId", churchId);
+  }
+  return total;
 }
 
-async function countAdmins(churchId: string): Promise<number> {
-  const adminDb = getAdminDb();
-  if (!adminDb) return 0;
-
-  const snap = await adminDb
-    .collection("users")
-    .where("churchId", "==", churchId)
-    .where("churchRole", "==", "admin")
-    .count()
-    .get();
-
-  return snap.data().count;
-}
-
-async function countChurches(): Promise<number> {
-  const adminDb = getAdminDb();
-  if (!adminDb) return 1;
-
-  const snap = await adminDb
-    .collection(CHURCHES_COLLECTION)
-    .where("isActive", "==", true)
-    .count()
-    .get();
-
-  return Math.max(1, snap.data().count);
-}
-
-/** Compute live usage for a church tenant. */
-export async function computeChurchUsage(
-  churchId: string
+/** Compute live usage for an organization tenant. */
+export async function computeOrganizationUsage(
+  organizationId: string
 ): Promise<SubscriptionUsage> {
-  if (!churchId.trim()) return { ...EMPTY_USAGE };
+  if (!organizationId.trim()) return { ...EMPTY_USAGE };
 
   try {
+    const churchIds = await getChurchIdsForOrganization(organizationId);
+    const churches =
+      churchIds.length > 0
+        ? churchIds.length
+        : await countByField(CHURCHES_COLLECTION, "organizationId", organizationId);
+
     const [
       members,
       songs,
       sermons,
       articles,
-      churches,
       admins,
       events,
       donationCampaigns,
     ] = await Promise.all([
-      countMembers(churchId),
-      countByChurchId(SONGS_COLLECTION, churchId),
-      countByChurchId(SERMONS_COLLECTION, churchId),
-      countByChurchId(ARTICLES_COLLECTION, churchId),
-      countChurches(),
-      countAdmins(churchId),
-      countByChurchId(EVENTS_COLLECTION, churchId),
-      countByChurchId(DONATION_CAMPAIGNS_COLLECTION, churchId),
+      countMembersForOrganization(organizationId, churchIds),
+      countContentForOrganization(SONGS_COLLECTION, organizationId, churchIds),
+      countContentForOrganization(SERMONS_COLLECTION, organizationId, churchIds),
+      countContentForOrganization(ARTICLES_COLLECTION, organizationId, churchIds),
+      countAdminsForOrganization(organizationId, churchIds),
+      countContentForOrganization(EVENTS_COLLECTION, organizationId, churchIds),
+      countContentForOrganization(
+        DONATION_CAMPAIGNS_COLLECTION,
+        organizationId,
+        churchIds
+      ),
     ]);
 
     return {
@@ -99,13 +146,36 @@ export async function computeChurchUsage(
       songs,
       sermons,
       articles,
-      churches,
+      churches: Math.max(1, churches),
       admins,
       events,
       donationCampaigns,
     };
   } catch (error) {
-    console.error("[subscription] usage compute failed:", error);
+    console.error("[subscription] org usage compute failed:", error);
     return { ...EMPTY_USAGE };
   }
+}
+
+/** @deprecated Use computeOrganizationUsage — kept for legacy callers */
+export async function computeChurchUsage(
+  churchId: string
+): Promise<SubscriptionUsage> {
+  const adminDb = getAdminDb();
+  if (!adminDb || !churchId.trim()) return { ...EMPTY_USAGE };
+
+  const churchSnap = await adminDb
+    .collection(CHURCHES_COLLECTION)
+    .doc(churchId)
+    .get();
+
+  const organizationId = churchSnap.exists
+    ? String(churchSnap.data()?.organizationId ?? "").trim()
+    : "";
+
+  if (organizationId) {
+    return computeOrganizationUsage(organizationId);
+  }
+
+  return computeOrganizationUsage(churchId);
 }

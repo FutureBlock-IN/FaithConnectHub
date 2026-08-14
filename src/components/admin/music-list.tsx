@@ -250,9 +250,9 @@ export function MusicList({ songs, loading, onEdit, onDelete }: MusicListProps) 
             <Music2 className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-sm font-medium">No songs yet</p>
+            <p className="text-sm font-medium">No songs have been created for this church yet.</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Add your first song to get started.
+              Create your first song to get started.
             </p>
           </div>
         </div>

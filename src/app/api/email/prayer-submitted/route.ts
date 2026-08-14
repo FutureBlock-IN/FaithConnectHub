@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { triggerPrayerSubmittedEmails } from "@/lib/email/triggers";
+import {
+  triggerPrayerRequestSubmittedNotifications,
+  triggerPrayerSubmittedEmails,
+} from "@/lib/email/triggers";
 import { verifyBearerToken } from "@/lib/email/verify-auth";
 import { getAdminDb } from "@/lib/firebase-admin";
 import {
@@ -48,6 +51,7 @@ export async function POST(request: Request) {
       snap.id,
       snap.data() as Record<string, unknown>
     );
+    const prayerData = snap.data() as Record<string, unknown>;
 
     if (prayer.userId !== authUser.uid) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -57,6 +61,18 @@ export async function POST(request: Request) {
     if (!userEmail?.trim()) {
       return NextResponse.json({ success: true });
     }
+
+    const memberName = getPrayerRequestDisplayName(prayer);
+
+    await triggerPrayerRequestSubmittedNotifications({
+      prayerId: prayer.id,
+      churchId: prayer.churchId,
+      organizationId: String(prayerData.organizationId ?? "").trim() || undefined,
+      branchId: String(prayerData.branchId ?? "").trim() || undefined,
+      submitterUserId: authUser.uid,
+      memberName,
+      prayerTitle: body.prayerTitle || prayer.title,
+    });
 
     triggerPrayerSubmittedEmails({
       prayerId: prayer.id,

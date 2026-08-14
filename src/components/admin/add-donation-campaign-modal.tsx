@@ -44,7 +44,9 @@ import {
   type DonationCampaignFormValues,
 } from "@/lib/donation-form-validation";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { notifyIfDonationCampaignPublished } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 
@@ -64,6 +66,8 @@ export function AddDonationCampaignModal({
   churchId,
 }: AddDonationCampaignModalProps) {
   const { user, authUser } = useFirebaseAuth();
+  const { invalidateDonations } = useInvalidateAdminQueries();
+  const tenantFields = useTenantNotifyFields();
   const [bannerFile, setBannerFile] = useState<File | undefined>();
   const [bannerPreview, setBannerPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -125,6 +129,10 @@ export function AddDonationCampaignModal({
     setLoading(true);
     try {
       const idToken = user ? await user.getIdToken() : undefined;
+      if (!idToken) {
+        toast.error("You must be signed in to upload files.");
+        return;
+      }
       const payload = {
         title: values.title.trim(),
         description: values.description.trim(),
@@ -145,7 +153,8 @@ export function AddDonationCampaignModal({
             initialCampaign.id,
             "cover",
             formData,
-            (progress) => setUploadProgress(progress)
+            (progress) => setUploadProgress(progress),
+            idToken
           );
           await updateDonationCampaign(initialCampaign.id, { bannerImage: url });
         }
@@ -160,7 +169,12 @@ export function AddDonationCampaignModal({
 
         toast.success("Campaign updated successfully");
       } else {
-        const campaignId = await createDonationCampaign({ ...payload, churchId });
+        const campaignId = await createDonationCampaign({
+          ...payload,
+          churchId,
+          organizationId: tenantFields.organizationId,
+          branchId: tenantFields.branchId,
+        });
 
         if (bannerFile) {
           const formData = new FormData();
@@ -169,7 +183,8 @@ export function AddDonationCampaignModal({
             campaignId,
             "cover",
             formData,
-            (progress) => setUploadProgress(progress)
+            (progress) => setUploadProgress(progress),
+            idToken
           );
           await updateDonationCampaign(campaignId, { bannerImage: url });
         }
@@ -184,6 +199,7 @@ export function AddDonationCampaignModal({
         toast.success("Campaign created successfully");
       }
 
+      await invalidateDonations();
       onSave();
       form.reset();
       setBannerFile(undefined);

@@ -27,11 +27,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import {
   deletePrayerRequest,
   updatePrayerRequestStatus,
 } from "@/lib/prayer-request-mutations";
 import { notifyIfPrayerApproved } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import { getPrayerRequestDisplayName, formatPrayerDate } from "@/lib/prayer-request-firestore";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +44,21 @@ type PrayerRequestListProps = {
 
 type StatusFilter = PrayerRequestStatus | "all";
 
-function StatusBadge({ status }: { status: PrayerRequestStatus }) {
+function StatusBadge({
+  status,
+  isAnswered,
+}: {
+  status: PrayerRequestStatus;
+  isAnswered?: boolean;
+}) {
+  if (isAnswered) {
+    return (
+      <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-400">
+        Answered
+      </span>
+    );
+  }
+
   const styles: Record<PrayerRequestStatus, string> = {
     pending: "bg-amber-500/10 text-amber-400",
     approved: "bg-emerald-500/10 text-emerald-400",
@@ -63,6 +79,8 @@ function StatusBadge({ status }: { status: PrayerRequestStatus }) {
 
 function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
   const { user } = useFirebaseAuth();
+  const { invalidatePrayers } = useInvalidateAdminQueries();
+  const tenantFields = useTenantNotifyFields();
   const [filter, setFilter] = useState<StatusFilter>("pending");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -89,12 +107,15 @@ function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
         previousStatus: request.status,
         newStatus: status,
         idToken,
+        churchId: request.churchId || tenantFields.churchId,
+        organizationId: tenantFields.organizationId,
       });
       toast.success(
         status === "approved"
           ? "Prayer request approved"
           : "Prayer request rejected"
       );
+      await invalidatePrayers();
     } catch {
       toast.error("Unable to update prayer request");
     } finally {
@@ -109,6 +130,7 @@ function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
     try {
       await deletePrayerRequest(deleteTarget.id);
       toast.success("Prayer request deleted");
+      await invalidatePrayers();
     } catch {
       toast.error("Failed to delete prayer request");
     } finally {
@@ -188,7 +210,10 @@ function PrayerRequestListInner({ requests, loading }: PrayerRequestListProps) {
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <StatusBadge status={request.status} />
+                            <StatusBadge
+                              status={request.status}
+                              isAnswered={request.isAnswered}
+                            />
                             <span className="text-xs text-muted-foreground">
                               {formatPrayerDate(request.createdAt)}
                             </span>

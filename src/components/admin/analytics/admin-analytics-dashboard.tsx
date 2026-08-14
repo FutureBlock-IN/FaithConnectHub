@@ -9,10 +9,14 @@ import {
   FileText,
   HeartHandshake,
   ListMusic,
+  Loader2,
   Mic2,
+  RefreshCw,
   Star,
   Users,
 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 import { ChurchSelector } from "@/components/church/church-selector";
 import { adminSectionClass } from "@/lib/responsive-classes";
@@ -83,8 +87,7 @@ export function AdminAnalyticsDashboard() {
     },
   ];
 
-  const showScopeWarning =
-    MULTI_CHURCH_ENABLED && !isSuperAdmin && !adminChurchId;
+  const showScopeWarning = !isSuperAdmin && !adminChurchId;
 
   return (
     <div className={adminSectionClass}>
@@ -105,18 +108,31 @@ export function AdminAnalyticsDashboard() {
               <p className="text-xs text-muted-foreground">
                 {analytics.scopeLabel}
                 {analytics.usingInsightsApi ?
-                  " · insights refresh every minute"
-                : " · live engagement metrics"}
+                  " · server insights"
+                : " · engagement metrics"}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              disabled={analytics.loading || analytics.insightsLoading}
+              onClick={() => analytics.refresh()}
+            >
+              {analytics.loading || analytics.insightsLoading ?
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              : <RefreshCw className="mr-2 size-4" />}
+              Refresh
+            </Button>
             {MULTI_CHURCH_ENABLED && isSuperAdmin ?
               <ChurchSelector compact />
             : null}
             <Link
-              href="/admin-worship-panel"
+              href="/dashboard"
               className="rounded-full border border-border/60 px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
             >
               Dashboard

@@ -43,9 +43,11 @@ import {
 } from "@/lib/event-form-validation";
 import { createEvent, updateEvent } from "@/lib/event-mutations";
 import { notifyIfEventPublished } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 
 type AddEventModalProps = {
   isOpen: boolean;
@@ -63,6 +65,8 @@ export function AddEventModal({
   churchId,
 }: AddEventModalProps) {
   const { user } = useFirebaseAuth();
+  const { invalidateEvents } = useInvalidateAdminQueries();
+  const tenantFields = useTenantNotifyFields();
   const [bannerFile, setBannerFile] = useState<File | undefined>();
   const [bannerPreview, setBannerPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -138,6 +142,10 @@ export function AddEventModal({
     setLoading(true);
     try {
       const idToken = user ? await user.getIdToken() : undefined;
+      if (!idToken) {
+        toast.error("You must be signed in to upload files.");
+        return;
+      }
 
       const payload = {
         title: values.title.trim(),
@@ -162,7 +170,8 @@ export function AddEventModal({
             initialEvent.id,
             "cover",
             formData,
-            (progress) => setUploadProgress(progress)
+            (progress) => setUploadProgress(progress),
+            idToken
           );
           await updateEvent(initialEvent.id, { bannerImage: url });
           bannerImageUrl = url;
@@ -175,6 +184,8 @@ export function AddEventModal({
           status: payload.status,
           wasStatus: initialEvent.status,
           idToken,
+          churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Event updated successfully");
@@ -189,7 +200,8 @@ export function AddEventModal({
             eventId,
             "cover",
             formData,
-            (progress) => setUploadProgress(progress)
+            (progress) => setUploadProgress(progress),
+            idToken
           );
           await updateEvent(eventId, { bannerImage: url });
           bannerImageUrl = url;
@@ -201,11 +213,14 @@ export function AddEventModal({
           image: bannerImageUrl,
           status: payload.status,
           idToken,
+          churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Event created successfully");
       }
 
+      await invalidateEvents();
       onSave();
       form.reset();
       setBannerFile(undefined);

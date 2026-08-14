@@ -1,6 +1,8 @@
 import {
   collection,
+  doc,
   documentId,
+  getDoc,
   getDocs,
   query,
   where,
@@ -42,4 +44,35 @@ export async function getFirestoreDocsByIds<T>(
   );
 
   return results.flat();
+}
+
+/**
+ * Fetches documents one at a time so permission errors on individual
+ * items (e.g. cross-church favorites) do not fail the entire batch.
+ */
+export async function getFirestoreDocsByIdsSafe<T>(
+  collectionName: string,
+  ids: string[],
+  normalize: (id: string, data: Record<string, unknown>) => T
+): Promise<T[]> {
+  if (ids.length === 0) return [];
+
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  const results: T[] = [];
+
+  await Promise.all(
+    uniqueIds.map(async (id) => {
+      try {
+        const snapshot = await getDoc(doc(db, collectionName, id));
+        if (!snapshot.exists()) return;
+        results.push(
+          normalize(snapshot.id, snapshot.data() as Record<string, unknown>)
+        );
+      } catch {
+        // Skip items the user can no longer read (e.g. after switching churches).
+      }
+    })
+  );
+
+  return results;
 }

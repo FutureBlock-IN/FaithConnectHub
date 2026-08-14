@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
 
 import { DonationCampaignList } from "@/components/admin/donation-campaign-list";
 import { AdminChurchNotice } from "@/components/admin/admin-church-notice";
@@ -22,7 +24,10 @@ import {
   useAdminChurchId,
   useAdminDonations,
 } from "@/hooks/use-admin-collections";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { filterBySearch, paginateItems } from "@/lib/admin-list-utils";
+import { downloadDonationsCsv } from "@/lib/donation-export";
+import { Button } from "@/components/ui/button";
 import type { FirebaseDonationCampaign } from "@/types/firebase-donation";
 
 const AddDonationCampaignModal = dynamic(
@@ -40,6 +45,7 @@ export function AdminDonationsPageClient({ embedded = false }: { embedded?: bool
   const adminChurchId = useAdminChurchId();
   const blocked = useAdminChurchBlocked();
   const { campaigns, donations, loading } = useAdminDonations();
+  const { invalidateDonations } = useInvalidateAdminQueries();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CampaignStatusFilter>("all");
@@ -75,6 +81,21 @@ export function AdminDonationsPageClient({ embedded = false }: { embedded?: bool
   useEffect(() => {
     if (safePage !== page) setPage(safePage);
   }, [safePage, page]);
+
+  function handleExportCsv() {
+    if (!adminChurchId) {
+      toast.error("Select a church before exporting donations.");
+      return;
+    }
+
+    if (donations.length === 0) {
+      toast.message("No donations to export yet.");
+      return;
+    }
+
+    downloadDonationsCsv(donations, campaigns, adminChurchId);
+    toast.success(`Exported ${donations.length} donation record(s).`);
+  }
 
   return (
     <div className={embedded ? "space-y-4" : adminSectionClass}>
@@ -121,6 +142,16 @@ export function AdminDonationsPageClient({ embedded = false }: { embedded?: bool
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-full sm:w-auto"
+          disabled={blocked || loading || donations.length === 0}
+          onClick={handleExportCsv}
+        >
+          <Download className="mr-2 size-4" />
+          Export CSV
+        </Button>
       </AdminToolbar>
 
       <DonationCampaignList
@@ -131,7 +162,7 @@ export function AdminDonationsPageClient({ embedded = false }: { embedded?: bool
           setSelectedCampaign(campaign);
           setModalOpen(true);
         }}
-        onDelete={() => {}}
+        onDelete={() => void invalidateDonations()}
       />
 
       <AdminListPagination

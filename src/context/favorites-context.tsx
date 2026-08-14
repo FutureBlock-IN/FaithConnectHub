@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   FavoriteItemType,
@@ -10,7 +11,11 @@ import type {
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import { addFavorite, removeFavorite } from "@/lib/favorite-mutations";
 import { getFavoriteLookupKey } from "@/lib/favorite-firestore";
-import { subscribeToUserFavorites } from "@/lib/favorite-queries";
+import { fetchUserFavorites } from "@/lib/favorite-queries";
+import {
+  QUERY_GC_TIME,
+  QUERY_STALE_TIME,
+} from "@/lib/react-query-config";
 
 type FavoritesContextValue = {
   favorites: FirebaseFavorite[];
@@ -28,28 +33,15 @@ const FavoritesContext = React.createContext<FavoritesContextValue | null>(
 
 export function FavoritesProvider({ children }: React.PropsWithChildren) {
   const { user } = useFirebaseAuth();
-  const [favorites, setFavorites] = React.useState<FirebaseFavorite[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const queryClient = useQueryClient();
 
-  React.useEffect(() => {
-    if (!user?.uid) {
-      setFavorites([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const unsubscribe = subscribeToUserFavorites(
-      user.uid,
-      (items) => {
-        setFavorites(items);
-        setLoading(false);
-      },
-      () => setLoading(false)
-    );
-
-    return unsubscribe;
-  }, [user?.uid]);
+  const { data: favorites = [], isLoading } = useQuery({
+    queryKey: ["user-favorites", user?.uid],
+    enabled: Boolean(user?.uid),
+    queryFn: () => fetchUserFavorites(user!.uid),
+    staleTime: QUERY_STALE_TIME,
+    gcTime: QUERY_GC_TIME,
+  });
 
   const favoriteKeys = React.useMemo(
     () =>
@@ -76,22 +68,28 @@ export function FavoritesProvider({ children }: React.PropsWithChildren) {
 
       if (isFavorited(itemType, trimmedId)) {
         await removeFavorite(user.uid, itemType, trimmedId);
+        await queryClient.invalidateQueries({
+          queryKey: ["user-favorites", user.uid],
+        });
         return;
       }
 
       await addFavorite(user.uid, itemType, trimmedId);
+      await queryClient.invalidateQueries({
+        queryKey: ["user-favorites", user.uid],
+      });
     },
-    [user?.uid, isFavorited]
+    [user?.uid, isFavorited, queryClient]
   );
 
   const value = React.useMemo(
     () => ({
       favorites,
-      loading,
+      loading: isLoading,
       isFavorited,
       toggleFavorite,
     }),
-    [favorites, loading, isFavorited, toggleFavorite]
+    [favorites, isLoading, isFavorited, toggleFavorite]
   );
 
   return (

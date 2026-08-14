@@ -26,6 +26,7 @@ type ChurchListProps = {
   loading: boolean;
   onEdit: (church: FirebaseChurch) => void;
   onChanged: () => void;
+  onDeleteChurch?: (churchId: string) => Promise<void>;
 };
 
 export function ChurchList({
@@ -33,6 +34,7 @@ export function ChurchList({
   loading,
   onEdit,
   onChanged,
+  onDeleteChurch,
 }: ChurchListProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FirebaseChurch | null>(null);
@@ -54,7 +56,11 @@ export function ChurchList({
     if (!deleteTarget) return;
     setBusyId(deleteTarget.id);
     try {
-      await deleteChurch(deleteTarget.id);
+      if (onDeleteChurch) {
+        await onDeleteChurch(deleteTarget.id);
+      } else {
+        await deleteChurch(deleteTarget.id);
+      }
       toast.success("Church deleted");
       onChanged();
     } catch {
