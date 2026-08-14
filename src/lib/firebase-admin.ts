@@ -22,6 +22,11 @@ type ServiceAccountJson = Record<string, string> & {
 function loadServiceAccountFromFile(): ServiceAccountJson | null {
   const filePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim();
   if (!filePath) return null;
+  // Avoid reading local service account files in production serverless environments
+  // (e.g. Vercel). In production we prefer environment variables for credentials.
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+    return null;
+  }
 
   try {
     const absolutePath = resolve(process.cwd(), filePath);
@@ -47,9 +52,33 @@ function loadServiceAccountFromEnv(): ServiceAccountJson | null {
   }
 }
 
+/**
+ * Support inline env vars for production: FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_PROJECT_ID
+ * FIREBASE_PRIVATE_KEY may contain escaped newlines which must be replaced.
+ */
+function loadServiceAccountFromEnvVars(): ServiceAccountJson | null {
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
+
+  if (!clientEmail || !rawPrivateKey) return null;
+
+  const private_key = rawPrivateKey.replace(/\\n/g, "\n");
+
+  const parsed: ServiceAccountJson = {
+    type: "service_account",
+    client_email: clientEmail,
+    private_key,
+    project_id: projectId || "",
+  } as ServiceAccountJson;
+
+  return parsed;
+}
+
 function parseServiceAccount(): ServiceAccountJson | null {
+  // Prefer explicit env-based credentials in server environments (safer for Vercel).
   const parsed =
-    loadServiceAccountFromFile() ?? loadServiceAccountFromEnv();
+    loadServiceAccountFromEnv() ?? loadServiceAccountFromEnvVars() ?? loadServiceAccountFromFile();
 
   if (!parsed) return null;
 
