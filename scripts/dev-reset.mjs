@@ -3,7 +3,7 @@
  * and local /public/uploads test files. Does NOT touch rules, indexes, or schema.
  *
  * Usage:
- *   node scripts/dev-reset.mjs --confirm
+ *   node scripts/dev-reset.mjs --coynfirm
  *
  * Requires firebase-service-account.json (or FIREBASE_SERVICE_ACCOUNT_PATH).
  */
