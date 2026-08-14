@@ -8,7 +8,7 @@ import { SermonMediaSection } from "@/components/sermons/sermon-media-section";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ShareContentButton } from "@/components/share-content-button";
 import { isAuthenticatedServer } from "@/lib/auth-server";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import { getSermonByIdCached } from "@/lib/cached-worship-data";
 import {
   buildArticleJsonLd,
@@ -26,8 +26,8 @@ type SermonPageProps = {
 export async function generateMetadata({ params }: SermonPageProps): Promise<Metadata> {
   const { id } = await params;
   const decodedId = decodeURIComponent(id);
-  const { churchId } = await getPageChurchContext();
-  const sermon = await getSermonByIdCached(churchId, decodedId);
+  const { scope } = await getPageTenantContext();
+  const sermon = await getSermonByIdCached(scope, decodedId);
 
   if (!sermon || !sermon.isPublished) {
     return { title: "Sermon Not Found" };
@@ -61,8 +61,8 @@ export default async function SermonPage({ params }: SermonPageProps) {
     return <ContentAuthRequired callbackPath={callbackPath} />;
   }
 
-  const { churchId } = await getPageChurchContext();
-  const sermon = await getSermonByIdCached(churchId, decodedId);
+  const { scope } = await getPageTenantContext();
+  const sermon = await getSermonByIdCached(scope, decodedId);
 
   if (!sermon || !sermon.isPublished) {
     notFound();
