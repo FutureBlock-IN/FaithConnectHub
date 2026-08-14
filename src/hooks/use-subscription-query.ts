@@ -6,14 +6,14 @@ import { firebaseAuth } from "@/lib/firebase-auth-service";
 import type { SubscriptionSnapshot } from "@/types/subscription";
 
 async function fetchSubscription(
-  churchId: string
+  organizationId: string
 ): Promise<SubscriptionSnapshot> {
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error("Not authenticated");
 
   const token = await user.getIdToken();
   const response = await fetch(
-    `/api/subscription?churchId=${encodeURIComponent(churchId)}`,
+    `/api/subscription?organizationId=${encodeURIComponent(organizationId)}`,
     {
       headers: { Authorization: `Bearer ${token}` },
     }
@@ -29,12 +29,12 @@ async function fetchSubscription(
   return response.json() as Promise<SubscriptionSnapshot>;
 }
 
-export function useSubscriptionQuery(churchId: string | null | undefined) {
-  const enabled = Boolean(churchId);
+export function useSubscriptionQuery(organizationId: string | null | undefined) {
+  const enabled = Boolean(organizationId);
 
   return useQuery({
-    queryKey: ["subscription", churchId],
-    queryFn: () => fetchSubscription(churchId!),
+    queryKey: ["subscription", organizationId],
+    queryFn: () => fetchSubscription(organizationId!),
     enabled,
     staleTime: 30_000,
   });

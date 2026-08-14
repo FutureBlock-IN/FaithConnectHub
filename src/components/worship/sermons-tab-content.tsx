@@ -10,6 +10,7 @@ import { ContentListToolbar } from "@/components/worship/content-list-toolbar";
 import { worshipContentGridClassName } from "@/components/worship/worship-card-styles";
 import { TabEmptyState } from "@/components/worship/songs-tab-content";
 import { WorshipGridSkeleton } from "@/components/skeletons/worship-grid-skeleton";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { useRealtimeSermons } from "@/hooks/use-worship-realtime";
 
 type SermonsTabContentProps = {
@@ -17,7 +18,8 @@ type SermonsTabContentProps = {
 };
 
 export function SermonsTabContent({ initialSermons }: SermonsTabContentProps) {
-  const { data: liveSermons, syncing } = useRealtimeSermons(initialSermons);
+  const { data: liveSermons, syncing, loadMore, hasMore, loadingMore } =
+    useRealtimeSermons(initialSermons);
   const sermons = useMemo(
     () => liveSermons.filter((sermon) => sermon.isPublished),
     [liveSermons]
@@ -67,6 +69,12 @@ export function SermonsTabContent({ initialSermons }: SermonsTabContentProps) {
           ))}
         </div>
       }
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   );
 }

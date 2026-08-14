@@ -72,7 +72,7 @@ export function ArticleList({
             <FileText className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-sm font-medium">No articles yet</p>
+            <p className="text-sm font-medium">No articles have been created for this church yet.</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Add your first article to get started.
             </p>

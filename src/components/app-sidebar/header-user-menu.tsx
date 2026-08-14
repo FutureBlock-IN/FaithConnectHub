@@ -1,20 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  Cog,
-  Info,
-  Lock,
-  LogOut,
-  Monitor,
-  Moon,
-  Sun,
-  SunMoon,
-  User2,
-} from "lucide-react";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
 
 import type { AuthUser } from "@/context/firebase-auth-context";
 import type { FirestoreUser } from "@/lib/firebase-auth-service";
@@ -24,17 +10,14 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuPortal,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import { useMounted } from "@/hooks/use-mounted";
+
+import { AccountMenuItems } from "./account-menu-items";
 
 function getInitials(authUser: AuthUser, profile: FirestoreUser | null): string {
   if (profile?.firstName && profile?.lastName) {
@@ -59,9 +42,7 @@ function getDisplayName(
 }
 
 export function HeaderUserMenu() {
-  const { authUser, profile, loading, signOut } = useFirebaseAuth();
-  const { setTheme } = useTheme();
-  const router = useRouter();
+  const { authUser, profile, loading } = useFirebaseAuth();
   const mounted = useMounted();
 
   if (!mounted || loading) {
@@ -78,17 +59,6 @@ export function HeaderUserMenu() {
 
   const displayName = getDisplayName(authUser, profile);
   const initials = getInitials(authUser, profile);
-
-  async function handleSignOut() {
-    try {
-      await signOut();
-      toast.success("Signed out successfully.");
-      router.push("/");
-      router.refresh();
-    } catch {
-      toast.error("Failed to sign out.");
-    }
-  }
 
   return (
     <DropdownMenu>
@@ -123,75 +93,7 @@ export function HeaderUserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/profile">
-            <User2 className="mr-2 size-4" />
-            My Profile
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/settings">
-            <Cog className="mr-2 size-4" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/about">
-            <Info className="mr-2 size-4" />
-            About
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/privacy">
-            <Lock className="mr-2 size-4" />
-            Privacy Policy
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <SunMoon className="mr-2 size-4" />
-            Theme
-          </DropdownMenuSubTrigger>
-          <DropdownMenuPortal>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setTheme("light");
-                }}
-              >
-                <Sun className="mr-2 size-4" />
-                Light
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setTheme("dark");
-                }}
-              >
-                <Moon className="mr-2 size-4" />
-                Dark
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setTheme("system");
-                }}
-              >
-                <Monitor className="mr-2 size-4" />
-                System
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuPortal>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-          <LogOut className="mr-2 size-4" />
-          Sign Out
-        </DropdownMenuItem>
+        <AccountMenuItems />
       </DropdownMenuContent>
     </DropdownMenu>
   );

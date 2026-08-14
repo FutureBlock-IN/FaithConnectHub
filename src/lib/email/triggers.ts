@@ -1,5 +1,7 @@
 import "server-only";
 
+import { FieldValue } from "firebase-admin/firestore";
+
 import { getAdminDb } from "@/lib/firebase-admin";
 import { normalizeArticleFromFirestore, ARTICLES_COLLECTION } from "@/lib/article-firestore";
 import {
@@ -15,6 +17,8 @@ import {
 } from "@/lib/event-firestore";
 import {
   PRAYER_REQUESTS_COLLECTION,
+  getPrayerRequestDisplayName,
+  isPublicPrayerRequest,
   normalizePrayerRequestFromFirestore,
 } from "@/lib/prayer-request-firestore";
 import { normalizeSermonFromFirestore, SERMONS_COLLECTION } from "@/lib/sermon-firestore";
@@ -23,6 +27,9 @@ import {
   normalizeSongFromFirestore,
   SONGS_COLLECTION,
 } from "@/lib/song-firestore";
+import { BRANCH_MEMBERSHIPS_COLLECTION } from "@/lib/organization/branch-membership-firestore";
+import { MEMBERSHIPS_COLLECTION } from "@/lib/organization/membership-firestore";
+import { roleMeetsMinimum, type MembershipRole } from "@/types/membership";
 
 import { dispatchEmail, EmailService } from "./index";
 import {
@@ -90,7 +97,7 @@ export function triggerWelcomeEmails(input: {
         Name: `${input.firstName ?? ""} ${input.lastName ?? ""}`.trim() || "—",
         Email: input.email,
       },
-      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/admin-worship-panel/users`,
+      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/dashboard/users`,
     })
   );
 }
@@ -122,9 +129,190 @@ export function triggerPrayerSubmittedEmails(input: {
         Submitter: input.userName,
         Email: input.userEmail,
       },
-      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/admin-worship-panel/content?tab=prayers`,
+      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/dashboard/content?tab=prayers`,
     })
   );
+}
+
+async function getChurchAdminUserIds(input: {
+  churchId: string;
+  organizationId?: string;
+  excludeUserId?: string;
+}): Promise<string[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return [];
+
+  const userIds = new Set<string>();
+  const churchId = input.churchId.trim();
+  if (!churchId) return [];
+
+  const branchSnap = await adminDb
+    .collection(BRANCH_MEMBERSHIPS_COLLECTION)
+    .where("churchId", "==", churchId)
+    .where("status", "==", "active")
+    .get();
+
+  for (const doc of branchSnap.docs) {
+    const data = doc.data() as Record<string, unknown>;
+    const role = String(data.role ?? "member") as MembershipRole;
+    const userId = String(data.userId ?? "").trim();
+    if (userId && roleMeetsMinimum(role, "church_admin")) {
+      userIds.add(userId);
+    }
+  }
+
+  const organizationId = input.organizationId?.trim();
+  if (organizationId) {
+    const orgSnap = await adminDb
+      .collection(MEMBERSHIPS_COLLECTION)
+      .where("organizationId", "==", organizationId)
+      .where("status", "==", "active")
+      .get();
+
+    for (const doc of orgSnap.docs) {
+      const data = doc.data() as Record<string, unknown>;
+      const role = String(data.role ?? "member") as MembershipRole;
+      const userId = String(data.userId ?? "").trim();
+      if (userId && roleMeetsMinimum(role, "org_admin")) {
+        userIds.add(userId);
+      }
+    }
+  }
+
+  const excludeUserId = input.excludeUserId?.trim();
+  if (excludeUserId) userIds.delete(excludeUserId);
+
+  return [...userIds];
+}
+
+export async function triggerPrayerRequestSubmittedNotifications(input: {
+  prayerId: string;
+  churchId: string;
+  organizationId?: string;
+  branchId?: string;
+  submitterUserId: string;
+  memberName: string;
+  prayerTitle: string;
+}): Promise<void> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return;
+
+  try {
+    const adminUserIds = await getChurchAdminUserIds({
+      churchId: input.churchId,
+      organizationId: input.organizationId,
+      excludeUserId: input.submitterUserId,
+    });
+
+    if (adminUserIds.length === 0) return;
+
+    const message = `${input.memberName} submitted a prayer request and is waiting for review.`;
+    const basePayload: Record<string, unknown> = {
+      type: "prayer_request_submitted",
+      churchId: input.churchId,
+      title: "New Prayer Request",
+      message,
+      contentTitle: input.prayerTitle.trim() || "Prayer request",
+      contentId: input.prayerId,
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    if (input.organizationId?.trim()) {
+      basePayload.organizationId = input.organizationId.trim();
+    }
+    if (input.branchId?.trim()) {
+      basePayload.branchId = input.branchId.trim();
+    }
+
+    await Promise.all(
+      adminUserIds.map((userId) =>
+        adminDb.collection("notifications").add({
+          ...basePayload,
+          userId,
+        })
+      )
+    );
+  } catch (error) {
+    console.error("[notifications] prayer request submitted failed:", error);
+  }
+}
+
+export async function canUserModerateChurchPrayers(input: {
+  userId: string;
+  churchId: string;
+  organizationId?: string;
+}): Promise<boolean> {
+  const adminIds = await getChurchAdminUserIds({
+    churchId: input.churchId,
+    organizationId: input.organizationId,
+  });
+  return adminIds.includes(input.userId);
+}
+
+export async function triggerPrayerApprovedMemberNotifications(
+  prayerId: string
+): Promise<void> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return;
+
+  try {
+    const snap = await adminDb
+      .collection(PRAYER_REQUESTS_COLLECTION)
+      .doc(prayerId)
+      .get();
+
+    if (!snap.exists) return;
+
+    const prayer = normalizePrayerRequestFromFirestore(
+      snap.id,
+      snap.data() as Record<string, unknown>
+    );
+    const prayerData = snap.data() as Record<string, unknown>;
+
+    if (prayer.status !== "approved" || !isPublicPrayerRequest(prayer)) return;
+
+    const memberSnap = await adminDb
+      .collection(BRANCH_MEMBERSHIPS_COLLECTION)
+      .where("churchId", "==", prayer.churchId)
+      .where("status", "==", "active")
+      .get();
+
+    const memberUserIds = [
+      ...new Set(
+        memberSnap.docs
+          .map((doc) => String(doc.data().userId ?? "").trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (memberUserIds.length === 0) return;
+
+    const organizationId = String(prayerData.organizationId ?? "").trim();
+    const branchId = String(prayerData.branchId ?? "").trim();
+    const contentTitle = prayer.title.trim() || "Prayer request";
+
+    await Promise.all(
+      memberUserIds.map((userId) => {
+        const payload: Record<string, unknown> = {
+          type: "prayer",
+          userId,
+          churchId: prayer.churchId,
+          title: "Prayer Request Approved",
+          message: "A prayer request is now on the prayer wall.",
+          contentTitle,
+          contentId: prayer.id,
+          read: false,
+          createdAt: FieldValue.serverTimestamp(),
+        };
+        if (organizationId) payload.organizationId = organizationId;
+        if (branchId) payload.branchId = branchId;
+        return adminDb.collection("notifications").add(payload);
+      })
+    );
+  } catch (error) {
+    console.error("[notifications] prayer approved member notify failed:", error);
+  }
 }
 
 export async function triggerPrayerApprovedEmail(prayerId: string): Promise<void> {
@@ -227,7 +415,7 @@ export async function triggerDonationCompletedEmails(
         Campaign: campaignTitle,
         "Donation ID": donation.id,
       },
-      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/admin-worship-panel/content?tab=donations`,
+      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/dashboard/content?tab=donations`,
     });
   } catch (error) {
     console.error("[email] donation trigger failed:", error);
@@ -347,11 +535,6 @@ export async function triggerEventAnnouncementEmails(
         })
       );
     }
-
-    console.log(
-      `[email] event announcement queued for ${queued} user(s):`,
-      event.title
-    );
   } catch (error) {
     console.error("[email] event announcement trigger failed:", error);
   }
@@ -398,11 +581,6 @@ export async function triggerContentAnnouncementEmails(
             })
           );
         });
-
-        console.log(
-          `[email] song announcement queued for ${queued} user(s):`,
-          song.songTitle
-        );
         return;
       }
 
@@ -428,11 +606,6 @@ export async function triggerContentAnnouncementEmails(
             })
           );
         });
-
-        console.log(
-          `[email] sermon announcement queued for ${queued} user(s):`,
-          sermon.title
-        );
         return;
       }
 
@@ -460,11 +633,6 @@ export async function triggerContentAnnouncementEmails(
             })
           );
         });
-
-        console.log(
-          `[email] article announcement queued for ${queued} user(s):`,
-          article.title
-        );
         return;
       }
 
@@ -498,11 +666,6 @@ export async function triggerContentAnnouncementEmails(
             })
           );
         });
-
-        console.log(
-          `[email] donation campaign announcement queued for ${queued} user(s):`,
-          campaign.title
-        );
       }
     }
   } catch (error) {
@@ -538,4 +701,82 @@ export function triggerContactEmails(input: {
       actionUrl: `mailto:${input.email}`,
     })
   );
+}
+
+export function triggerJoinRequestNotification(input: {
+  organizationId: string;
+  branchId: string;
+  churchName: string;
+  memberEmail: string;
+  memberName: string;
+  userId: string;
+}): void {
+  dispatchEmail("admin-join-request", () =>
+    EmailService.notifyAdmin({
+      type: "join_request",
+      title: "New membership request",
+      summary: `Someone requested to join ${input.churchName}.`,
+      details: {
+        Church: input.churchName,
+        Name: input.memberName || "—",
+        Email: input.memberEmail || "—",
+      },
+      actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://faithconnecthub.com"}/dashboard/church-settings?tab=members`,
+    })
+  );
+}
+
+export async function triggerMembershipApprovedNotification(input: {
+  userId: string;
+  churchId: string;
+  organizationId: string;
+  branchId: string;
+}): Promise<void> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return;
+
+  try {
+    const [churchSnap, userSnap] = await Promise.all([
+      adminDb.collection("churches").doc(input.churchId).get(),
+      adminDb.collection("users").doc(input.userId).get(),
+    ]);
+
+    const churchName = churchSnap.exists
+      ? String(churchSnap.data()?.name ?? "your church").trim() || "your church"
+      : "your church";
+
+    const userData = userSnap.data() as Record<string, unknown> | undefined;
+    const email = String(userData?.email ?? "").trim();
+    const memberName =
+      `${String(userData?.firstName ?? "")} ${String(userData?.lastName ?? "")}`.trim() ||
+      "Friend";
+
+    const message = `Your request to join ${churchName} has been approved. Welcome!`;
+
+    await adminDb.collection("notifications").add({
+      userId: input.userId,
+      churchId: input.churchId,
+      organizationId: input.organizationId,
+      type: "membership_approved",
+      title: "Membership Approved",
+      message,
+      contentTitle: churchName,
+      contentId: input.branchId,
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    if (email) {
+      dispatchEmail("membership-approved", () =>
+        EmailService.sendMembershipApproved({
+          to: email,
+          userName: memberName,
+          churchName,
+          userId: input.userId,
+        })
+      );
+    }
+  } catch (error) {
+    console.error("[email] membership approved notification failed:", error);
+  }
 }

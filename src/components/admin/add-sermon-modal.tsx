@@ -32,12 +32,14 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { createSermon, updateSermon } from "@/lib/firebase-sermon-queries";
 import {
   isValidAudioUrl,
   isValidYouTubeUrl,
 } from "@/lib/media-url-validation";
 import { notifyIfNewlyPublished } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 
@@ -120,6 +122,8 @@ export function AddSermonModal({
   churchId,
 }: AddSermonModalProps) {
   const { user, authUser } = useFirebaseAuth();
+  const { invalidateSermons } = useInvalidateAdminQueries();
+  const tenantFields = useTenantNotifyFields();
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState("");
   const [loading, setLoading] = useState(false);
@@ -208,6 +212,10 @@ export function AddSermonModal({
     setLoading(true);
     try {
       const idToken = user ? await user.getIdToken() : undefined;
+      if (!idToken) {
+        toast.error("You must be signed in to upload files.");
+        return;
+      }
 
       if (initialSermon) {
         await updateSermon(initialSermon.id, payload);
@@ -220,7 +228,8 @@ export function AddSermonModal({
             initialSermon.id,
             "cover",
             fd,
-            (p) => setUploadProgress(p)
+            (p) => setUploadProgress(p),
+            idToken
           );
           coverImageUrl = url;
           await updateSermon(initialSermon.id, { coverImage: url });
@@ -234,6 +243,8 @@ export function AddSermonModal({
           isPublished: payload.isPublished,
           wasPublished: initialSermon.isPublished,
           idToken,
+          churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Sermon updated successfully");
@@ -253,7 +264,8 @@ export function AddSermonModal({
             sermonId,
             "cover",
             fd,
-            (p) => setUploadProgress(p)
+            (p) => setUploadProgress(p),
+            idToken
           );
           coverImageUrl = url;
           await updateSermon(sermonId, { coverImage: url });
@@ -266,11 +278,14 @@ export function AddSermonModal({
           image: coverImageUrl,
           isPublished: payload.isPublished,
           idToken,
+          churchId,
+          organizationId: tenantFields.organizationId,
         });
 
         toast.success("Sermon added successfully");
       }
 
+      await invalidateSermons();
       onSave();
       form.reset();
       setCoverFile(undefined);

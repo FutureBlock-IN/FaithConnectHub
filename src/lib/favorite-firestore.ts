@@ -11,6 +11,7 @@ const VALID_ITEM_TYPES = new Set<FavoriteItemType>([
   "song",
   "sermon",
   "article",
+  "event",
 ]);
 
 export function normalizeFavoriteItemType(value: unknown): FavoriteItemType {

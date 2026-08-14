@@ -11,17 +11,17 @@ export const siteConfig = {
 
   ministry: {
     title: "FaithConnectHub",
-    author: "Songs by Rev. Dr. Amshumathi Mary Darla",
+    author: "Emmanuel",
   },
 
   profile: {
-    name: "Songs by Rev. Dr. Amshumathi Mary Darla",
+    name: "Emmanuel",
     image: "/images/profile.png",
   },
 
   author: {
     name: "FaithConnectHub",
-    url: "https://www.youtube.com/@Dr.AmshumathiMaryDarla",
+    url: "https://www.youtube.com  ",
     email: "privacy@faithconnecthub.org",
     x: "",
   },

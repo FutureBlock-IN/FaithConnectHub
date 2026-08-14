@@ -9,12 +9,14 @@ import { AdminChurchNotice } from "@/components/admin/admin-church-notice";
 import { AdminListPagination } from "@/components/admin/admin-list-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminToolbar } from "@/components/admin/admin-toolbar";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { adminSectionClass } from "@/lib/responsive-classes";
 import {
   useAdminArticles,
   useAdminChurchBlocked,
   useAdminChurchId,
 } from "@/hooks/use-admin-collections";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { filterBySearch, paginateItems } from "@/lib/admin-list-utils";
 import type { FirebaseArticle } from "@/types/firebase-article";
 
@@ -30,7 +32,9 @@ export function AdminArticlesPageClient({ embedded = false }: { embedded?: boole
   const searchParams = useSearchParams();
   const adminChurchId = useAdminChurchId();
   const blocked = useAdminChurchBlocked();
-  const { data: articles, loading } = useAdminArticles();
+  const { data: articles, loading, loadMore, hasMore, loadingMore } =
+    useAdminArticles();
+  const { invalidateArticles } = useInvalidateAdminQueries();
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -42,8 +46,18 @@ export function AdminArticlesPageClient({ embedded = false }: { embedded?: boole
     if (searchParams.get("create") === "1") {
       setSelectedArticle(null);
       setModalOpen(true);
+      return;
     }
-  }, [searchParams]);
+
+    const editId = searchParams.get("edit")?.trim();
+    if (!editId || loading) return;
+
+    const article = articles.find((item) => item.id === editId);
+    if (article) {
+      setSelectedArticle(article);
+      setModalOpen(true);
+    }
+  }, [searchParams, articles, loading]);
 
   useEffect(() => {
     setPage(1);
@@ -108,7 +122,7 @@ export function AdminArticlesPageClient({ embedded = false }: { embedded?: boole
           setSelectedArticle(article);
           setModalOpen(true);
         }}
-        onDelete={() => {}}
+        onDelete={() => void invalidateArticles()}
       />
 
       <AdminListPagination
@@ -116,6 +130,12 @@ export function AdminArticlesPageClient({ embedded = false }: { embedded?: boole
         totalPages={totalPages}
         totalItems={filteredArticles.length}
         onPageChange={setPage}
+      />
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
       />
 
       <AddArticleModal

@@ -1,5 +1,7 @@
 "use server";
 
+import type { TenantScope } from "@/lib/organization/tenant-scope";
+
 import { searchArticles } from "./firebase-article-queries";
 import { searchEvents } from "./firebase-event-queries";
 import { searchSermons } from "./firebase-sermon-queries";
@@ -10,7 +12,7 @@ import {
 } from "./global-search";
 
 export async function searchGlobal(
-  churchId: string,
+  scope: TenantScope,
   searchQuery: string
 ): Promise<GlobalSearchGroupedResults> {
   const normalized = searchQuery.trim();
@@ -19,10 +21,10 @@ export async function searchGlobal(
   }
 
   const [songs, sermons, articles, events] = await Promise.all([
-    searchSongs(churchId, normalized),
-    searchSermons(churchId, normalized),
-    searchArticles(churchId, normalized),
-    searchEvents(churchId, normalized),
+    searchSongs(scope, normalized),
+    searchSermons(scope, normalized),
+    searchArticles(scope, normalized),
+    searchEvents(scope, normalized),
   ]);
 
   return buildGlobalSearchResults({ songs, sermons, articles, events });

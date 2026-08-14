@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { resolveIsAdmin } from "@/lib/admin-access";
+import { verifyChurchContentPublisher } from "@/lib/auth/verify-church-content-publisher";
 import {
   triggerContentAnnouncementEmails,
   type ContentPublishEmailType,
@@ -26,12 +26,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   }
 
-  const userSnap = await adminDb.collection("users").doc(authUser.uid).get();
-  const userData = userSnap.exists ? userSnap.data() : null;
-  const isAdmin =
-    resolveIsAdmin(authUser.email) || userData?.role === "admin";
+  const canPublish = await verifyChurchContentPublisher(
+    authUser.uid,
+    authUser.email
+  );
 
-  if (!isAdmin) {
+  if (!canPublish) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

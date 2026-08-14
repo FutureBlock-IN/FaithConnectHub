@@ -5,6 +5,7 @@ import React from "react";
 
 import { AuthLoading } from "@/components/auth/auth-loading";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { fetchPostAuthDestination } from "@/lib/auth/fetch-post-auth-destination";
 import { sanitizeCallbackUrl } from "@/lib/callback-url";
 
 type AuthRedirectProps = {
@@ -20,7 +21,9 @@ export function AuthRedirect({ children, callbackUrl }: AuthRedirectProps) {
 
   React.useEffect(() => {
     if (!loading && user) {
-      router.replace(redirectTo);
+      void fetchPostAuthDestination(redirectTo).then((destination) => {
+        router.replace(destination);
+      });
     }
   }, [user, loading, router, redirectTo]);
 

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { setAuthCookie } from "@/context/firebase-auth-context";
-import { resolveIsAdmin } from "@/lib/admin-access";
+import { fetchPostAuthDestination } from "@/lib/auth/fetch-post-auth-destination";
 import { buildAuthHref, sanitizeCallbackUrl } from "@/lib/callback-url";
 import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { signInWithEmail, signInWithGoogle, getUserProfile } from "@/lib/firebase-auth-service";
@@ -63,12 +63,9 @@ export function FirebaseSignInForm({
     try {
       const { user } = await signInWithEmail(data.email, data.password);
       const profile = await getUserProfile(user.uid);
-      setAuthCookie(true, {
-        role: profile?.role ?? "user",
-        isAdmin: resolveIsAdmin(user.email),
-      });
+      setAuthCookie(true, { role: profile?.role ?? "user", profile: profile ?? undefined });
       toast.success("Signed in successfully!");
-      router.push(redirectTo);
+      router.push(await fetchPostAuthDestination(redirectTo));
     } catch (error) {
       toast.error(getFirebaseAuthErrorMessage(error));
     } finally {
@@ -79,13 +76,13 @@ export function FirebaseSignInForm({
   async function handleGoogleSignIn() {
     setIsGoogleLoading(true);
     try {
-      const { profile } = await signInWithGoogle();
-      setAuthCookie(true, {
-        role: profile.role,
-        isAdmin: resolveIsAdmin(profile.email),
-      });
+      const googleResult = await signInWithGoogle();
+      if ("redirected" in googleResult) return;
+
+      const { profile } = googleResult;
+      setAuthCookie(true, { role: profile.role, profile });
       toast.success("Signed in with Google!");
-      router.push(redirectTo);
+      router.push(await fetchPostAuthDestination(redirectTo));
     } catch (error) {
       toast.error(getFirebaseAuthErrorMessage(error));
     } finally {

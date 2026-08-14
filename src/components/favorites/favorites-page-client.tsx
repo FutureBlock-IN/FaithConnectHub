@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Heart } from "lucide-react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Bookmark } from "lucide-react";
 
+import { EventCard } from "@/components/events/event-card";
 import { FirebaseArticleCard } from "@/components/worship/firebase-article-card";
 import { FirebaseSermonCard } from "@/components/worship/firebase-sermon-card";
 import {
@@ -10,35 +12,57 @@ import {
   songsAlbumGridClassName,
 } from "@/components/music/firebase-song-card";
 import { WorshipGridSkeleton } from "@/components/skeletons/worship-grid-skeleton";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FetchErrorBanner } from "@/components/ui/fetch-error-banner";
 import { useFavorites } from "@/context/favorites-context";
-import { useResolvedFavoriteItems } from "@/hooks/use-resolved-favorite-items";
-import { pageContentClass, typePageTitleClass, contentCardGridClassName } from "@/lib/responsive-classes";
+import {
+  useResolvedFavoriteItems,
+  type ResolvedFavoriteEntry,
+} from "@/hooks/use-resolved-favorite-items";
+import {
+  contentCardGridClassName,
+  pageContentClass,
+  typePageTitleClass,
+} from "@/lib/responsive-classes";
 
-type FilterTab = "all" | "songs" | "sermons" | "articles";
+type FilterTab = "all" | "sermons" | "songs" | "articles" | "events";
 
 export function FavoritesPageClient() {
   const { favorites, loading: favoritesLoading } = useFavorites();
-  const { songs, sermons, articles, loading: itemsLoading, error: itemsError } =
-    useResolvedFavoriteItems(favorites);
+  const {
+    songs,
+    sermons,
+    articles,
+    events,
+    entries,
+    loading: itemsLoading,
+    error: itemsError,
+  } = useResolvedFavoriteItems(favorites);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
   const loading = favoritesLoading || itemsLoading;
-  const totalCount = favorites.length;
+  const savedCount = favorites.length;
+  const visibleCount = entries.length;
 
-  const allCount = songs.length + sermons.length + articles.length;
+  const filteredEntries = useMemo(() => {
+    if (activeTab === "all") return entries;
+    const typeMap = {
+      songs: "song",
+      sermons: "sermon",
+      articles: "article",
+      events: "event",
+    } as const;
+    const itemType = typeMap[activeTab];
+    return entries.filter((entry) => entry.itemType === itemType);
+  }, [activeTab, entries]);
 
   return (
     <div className={pageContentClass}>
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/60">
-          Your Library
-        </p>
-        <h1 className={typePageTitleClass}>My Favorites</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Songs, sermons, and articles you have saved. Tap the heart on any card
-          to remove an item from favorites.
+        <h1 className={typePageTitleClass}>My Library</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+          Everything you have saved in one place.
         </p>
       </div>
 
@@ -48,97 +72,72 @@ export function FavoritesPageClient() {
 
       {loading ?
         <WorshipGridSkeleton count={8} />
-      : totalCount === 0 ?
-        <EmptyState />
+      : savedCount === 0 ?
+        <LibraryEmptyState />
       : <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as FilterTab)}
           className="space-y-6"
         >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:max-w-2xl sm:grid-cols-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/50 p-1 sm:max-w-3xl sm:grid-cols-5">
             <TabsTrigger value="all" className="rounded-lg text-xs sm:text-sm">
-              All ({allCount})
-            </TabsTrigger>
-            <TabsTrigger value="songs" className="rounded-lg text-xs sm:text-sm">
-              Songs ({songs.length})
+              All ({visibleCount})
             </TabsTrigger>
             <TabsTrigger value="sermons" className="rounded-lg text-xs sm:text-sm">
               Sermons ({sermons.length})
             </TabsTrigger>
+            <TabsTrigger value="songs" className="rounded-lg text-xs sm:text-sm">
+              Songs ({songs.length})
+            </TabsTrigger>
             <TabsTrigger value="articles" className="rounded-lg text-xs sm:text-sm">
               Articles ({articles.length})
             </TabsTrigger>
+            <TabsTrigger value="events" className="rounded-lg text-xs sm:text-sm">
+              Events ({events.length})
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all" className="mt-0 space-y-8">
-            <FavoritesSection
-              title="Songs"
-              emptyMessage="No favorite songs yet."
-              isEmpty={songs.length === 0}
-            >
-              <div className={songsAlbumGridClassName}>
-                {songs.map((song) => (
-                  <FirebaseSongCard key={song.id} song={song} />
-                ))}
-              </div>
-            </FavoritesSection>
-
-            <FavoritesSection
-              title="Sermons"
-              emptyMessage="No favorite sermons yet."
-              isEmpty={sermons.length === 0}
-            >
-              <div className={contentCardGridClassName}>
-                {sermons.map((sermon) => (
-                  <FirebaseSermonCard key={sermon.id} sermon={sermon} />
-                ))}
-              </div>
-            </FavoritesSection>
-
-            <FavoritesSection
-              title="Articles"
-              emptyMessage="No favorite articles yet."
-              isEmpty={articles.length === 0}
-            >
-              <div className={contentCardGridClassName}>
-                {articles.map((article) => (
-                  <FirebaseArticleCard key={article.id} article={article} />
-                ))}
-              </div>
-            </FavoritesSection>
+          <TabsContent value="all" className="mt-0">
+            <FavoriteEntryGrid
+              entries={filteredEntries}
+              emptyMessage="No saved items are available right now. Some items may be from another church you no longer have access to."
+            />
           </TabsContent>
 
           <TabsContent value="songs" className="mt-0">
-            {songs.length === 0 ?
-              <EmptyTab message="No favorite songs yet." />
-            : <div className={songsAlbumGridClassName}>
-                {songs.map((song) => (
-                  <FirebaseSongCard key={song.id} song={song} />
-                ))}
-              </div>
-            }
+            <FavoriteEntryGrid
+              entries={filteredEntries}
+              emptyMessage="No songs saved yet. Browse songs and tap the heart icon to save them here."
+              browseHref="/songs"
+              browseLabel="Browse Songs"
+            />
           </TabsContent>
 
           <TabsContent value="sermons" className="mt-0">
-            {sermons.length === 0 ?
-              <EmptyTab message="No favorite sermons yet." />
-            : <div className={contentCardGridClassName}>
-                {sermons.map((sermon) => (
-                  <FirebaseSermonCard key={sermon.id} sermon={sermon} />
-                ))}
-              </div>
-            }
+            <FavoriteEntryGrid
+              entries={filteredEntries}
+              emptyMessage="No sermons saved yet. Browse sermons and tap the heart icon to save them here."
+              browseHref="/sermons"
+              browseLabel="Browse Sermons"
+            />
           </TabsContent>
 
           <TabsContent value="articles" className="mt-0">
-            {articles.length === 0 ?
-              <EmptyTab message="No favorite articles yet." />
-            : <div className={contentCardGridClassName}>
-                {articles.map((article) => (
-                  <FirebaseArticleCard key={article.id} article={article} />
-                ))}
-              </div>
-            }
+            <FavoriteEntryGrid
+              entries={filteredEntries}
+              emptyMessage="No articles saved yet. Browse articles and tap the heart icon to save them here."
+              browseHref="/articles"
+              browseLabel="Browse Articles"
+            />
+          </TabsContent>
+
+          <TabsContent value="events" className="mt-0">
+            <FavoriteEntryGrid
+              entries={filteredEntries}
+              emptyMessage="No events saved yet. Browse events and tap the heart icon to save them here."
+              browseHref="/events"
+              browseLabel="Browse Events"
+            />
           </TabsContent>
         </Tabs>
       }
@@ -146,54 +145,86 @@ export function FavoritesPageClient() {
   );
 }
 
-function FavoritesSection({
-  title,
+function FavoriteEntryGrid({
+  entries,
   emptyMessage,
-  isEmpty,
-  children,
+  browseHref,
+  browseLabel,
 }: {
-  title: string;
+  entries: ResolvedFavoriteEntry[];
   emptyMessage: string;
-  isEmpty: boolean;
-  children: React.ReactNode;
+  browseHref?: string;
+  browseLabel?: string;
 }) {
-  if (isEmpty) {
+  if (entries.length === 0) {
     return (
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </h2>
-        <EmptyTab message={emptyMessage} />
-      </section>
+      <TabEmptyState
+        message={emptyMessage}
+        browseHref={browseHref}
+        browseLabel={browseLabel}
+      />
     );
   }
 
-  return (
-    <section className="space-y-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
+  const songsOnly = entries.every((entry) => entry.itemType === "song");
+  const gridClass = songsOnly ? songsAlbumGridClassName : contentCardGridClassName;
 
-function EmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-16 text-center">
-      <Heart className="mx-auto size-8 text-muted-foreground/60" />
-      <p className="mt-4 text-sm font-medium">No favorites yet</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tap the heart on any song, sermon, or article to save it here.
-      </p>
+    <div className={gridClass}>
+      {entries.map((entry) => (
+        <FavoriteEntryCard key={`${entry.itemType}:${entry.item.id}`} entry={entry} />
+      ))}
     </div>
   );
 }
 
-function EmptyTab({ message }: { message: string }) {
+function FavoriteEntryCard({ entry }: { entry: ResolvedFavoriteEntry }) {
+  switch (entry.itemType) {
+    case "song":
+      return <FirebaseSongCard song={entry.item} />;
+    case "sermon":
+      return <FirebaseSermonCard sermon={entry.item} />;
+    case "article":
+      return <FirebaseArticleCard article={entry.item} />;
+    case "event":
+      return <EventCard event={entry.item} />;
+  }
+}
+
+function LibraryEmptyState() {
   return (
-    <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center text-sm text-muted-foreground">
-      {message}
+    <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-16 text-center">
+      <Bookmark className="mx-auto size-10 text-muted-foreground/60" />
+      <p className="mt-4 text-lg font-semibold text-foreground">
+        Your library is empty
+      </p>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+        Save sermons, songs, articles, and events to read or listen later.
+      </p>
+      <Button asChild className="mt-6 rounded-full" variant="outline">
+        <Link href="/songs">Browse Content</Link>
+      </Button>
+    </div>
+  );
+}
+
+function TabEmptyState({
+  message,
+  browseHref,
+  browseLabel,
+}: {
+  message: string;
+  browseHref?: string;
+  browseLabel?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {browseHref && browseLabel ?
+        <Button asChild className="mt-4 rounded-full" variant="outline" size="sm">
+          <Link href={browseHref}>{browseLabel}</Link>
+        </Button>
+      : null}
     </div>
   );
 }

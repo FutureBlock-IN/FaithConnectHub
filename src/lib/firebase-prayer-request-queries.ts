@@ -23,6 +23,8 @@ import {
   isRecoverableAdminError,
   wrapFirebaseError,
 } from "./firebase-utils";
+import type { TenantScope } from "./organization/tenant-scope";
+import { fetchTenantCollection } from "./tenant-content-server";
 import { filterRecordsByChurch } from "./church-scope";
 import {
   normalizePrayerRequestFromFirestore,
@@ -207,24 +209,109 @@ async function fetchApprovedPrayerRequests(): Promise<FirebasePrayerRequest[]> {
 }
 
 export async function getPrayerRequests(
-  churchId: string
+  scope: TenantScope
 ): Promise<FirebasePrayerRequest[]> {
-  return filterRecordsByChurch(await fetchAllPrayerRequests(), churchId);
-}
-
-export async function getApprovedPrayerRequests(
-  churchId: string
-): Promise<FirebasePrayerRequest[]> {
-  return filterRecordsByChurch(await fetchApprovedPrayerRequests(), churchId).filter(
-    isPublicPrayerRequest
+  return fetchTenantCollection(
+    PRAYER_REQUESTS_COLLECTION,
+    scope,
+    (id, data) => normalizePrayerRequestFromFirestore(id, data),
+    { orderField: "createdAt", defaultBranchId: scope.branchId ?? null }
   );
 }
 
+export async function getApprovedPrayerRequests(
+  scope: TenantScope
+): Promise<FirebasePrayerRequest[]> {
+  const churchId = scope.churchId?.trim();
+  if (!churchId) return [];
+
+  const adminDb = getAdminDb();
+
+  if (adminDb) {
+    try {
+      const snapshot = await adminDb
+        .collection(PRAYER_REQUESTS_COLLECTION)
+        .where("churchId", "==", churchId)
+        .where("status", "==", "approved")
+        .orderBy("createdAt", "desc")
+        .get();
+
+      return snapshot.docs
+        .map((docSnap) =>
+          normalizePrayerRequestFromFirestore(
+            docSnap.id,
+            docSnap.data() as Record<string, unknown>
+          )
+        )
+        .filter(isPublicPrayerRequest);
+    } catch (error) {
+      if (isFirebaseIndexError(error)) {
+        const snapshot = await adminDb
+          .collection(PRAYER_REQUESTS_COLLECTION)
+          .where("churchId", "==", churchId)
+          .where("status", "==", "approved")
+          .get();
+
+        return snapshot.docs
+          .map((docSnap) =>
+            normalizePrayerRequestFromFirestore(
+              docSnap.id,
+              docSnap.data() as Record<string, unknown>
+            )
+          )
+          .filter(isPublicPrayerRequest)
+          .sort((a, b) => b.createdAt - a.createdAt);
+      }
+      if (!isRecoverableAdminError(error)) {
+        wrapFirebaseError(error);
+      }
+    }
+  }
+
+  try {
+    const clientQuery = query(
+      collection(db, PRAYER_REQUESTS_COLLECTION),
+      where("churchId", "==", churchId),
+      where("status", "==", "approved"),
+      orderBy("createdAt", "desc")
+    );
+    const snapshot = await getDocs(clientQuery);
+    return snapshot.docs
+      .map((docSnap) =>
+        normalizePrayerRequestFromFirestore(
+          docSnap.id,
+          docSnap.data() as Record<string, unknown>
+        )
+      )
+      .filter(isPublicPrayerRequest);
+  } catch (error) {
+    if (isFirebaseIndexError(error)) {
+      const fallbackQuery = query(
+        collection(db, PRAYER_REQUESTS_COLLECTION),
+        where("churchId", "==", churchId),
+        where("status", "==", "approved")
+      );
+      const snapshot = await getDocs(fallbackQuery);
+      return snapshot.docs
+        .map((docSnap) =>
+          normalizePrayerRequestFromFirestore(
+            docSnap.id,
+            docSnap.data() as Record<string, unknown>
+          )
+        )
+        .filter(isPublicPrayerRequest)
+        .sort((a, b) => b.createdAt - a.createdAt);
+    }
+    wrapFirebaseError(error);
+    return [];
+  }
+}
+
 export async function getLatestApprovedPrayerRequests(
-  churchId: string,
+  scope: TenantScope,
   limit = 3
 ): Promise<FirebasePrayerRequest[]> {
-  const approved = await getApprovedPrayerRequests(churchId);
+  const approved = await getApprovedPrayerRequests(scope);
   return approved.slice(0, limit);
 }
 

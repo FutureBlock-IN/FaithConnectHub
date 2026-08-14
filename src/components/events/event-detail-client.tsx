@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
   MapPin,
   UserRound,
 } from "lucide-react";
-import { doc, onSnapshot } from "firebase/firestore";
 
 import type { FirebaseEvent } from "@/types/firebase-event";
 
@@ -20,12 +19,10 @@ import { ShareEventButton } from "@/components/events/share-event-button";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 import { Badge } from "@/components/ui/badge";
 import { DEFAULT_SONG_COVER } from "@/config/site";
-import { db } from "@/lib/firebase";
+import { useEventDetailQuery } from "@/hooks/use-event-detail-query";
 import {
-  EVENTS_COLLECTION,
   formatEventDate,
   formatEventDateTime,
-  normalizeEventFromFirestore,
 } from "@/lib/event-firestore";
 import { getSongCoverUrl } from "@/lib/utils";
 import { pageDetailClass, typePageTitleClass } from "@/lib/responsive-classes";
@@ -39,30 +36,9 @@ export function EventDetailClient({
   eventId,
   initialEvent,
 }: EventDetailClientProps) {
-  const [event, setEvent] = useState(initialEvent);
-  const [loading, setLoading] = useState(false);
+  const { data: event, isLoading } = useEventDetailQuery(eventId, initialEvent);
 
-  useEffect(() => {
-    const ref = doc(db, EVENTS_COLLECTION, eventId);
-    const unsubscribe = onSnapshot(
-      ref,
-      (snapshot) => {
-        if (!snapshot.exists()) return;
-        setEvent(
-          normalizeEventFromFirestore(
-            snapshot.id,
-            snapshot.data() as Record<string, unknown>
-          )
-        );
-        setLoading(false);
-      },
-      () => setLoading(false)
-    );
-
-    return unsubscribe;
-  }, [eventId]);
-
-  if (loading && !event) {
+  if (isLoading && !event) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />

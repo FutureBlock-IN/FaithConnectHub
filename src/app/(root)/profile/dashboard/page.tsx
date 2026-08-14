@@ -1,6 +1,6 @@
 import { RequireAuth } from "@/components/auth/require-auth";
 import { DashboardPageClient } from "@/components/profile/dashboard/dashboard-page-client";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import { getUpcomingEventsCached } from "@/lib/cached-event-data";
 
 export const metadata = {
@@ -9,8 +9,8 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const { churchId } = await getPageChurchContext();
-  const initialEvents = await getUpcomingEventsCached(churchId);
+  const { scope } = await getPageTenantContext();
+  const initialEvents = await getUpcomingEventsCached(scope);
 
   return (
     <RequireAuth>

@@ -7,8 +7,7 @@ import type { FirebaseSong } from "@/types/firebase-song";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
 import { ImageWithFallback } from "@/components/image-with-fallback";
-import { useActiveChurchScope } from "@/context/active-church-context";
-import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
+import { useContentTenantScope } from "@/hooks/use-workspace-tenant-scope";
 import { searchSongs } from "@/lib/firebase-queries";
 import { getSongAlternateTitle, getSongDisplayTitle } from "@/lib/song-firestore";
 import { DEFAULT_SONG_COVER } from "@/config/site";
@@ -21,7 +20,7 @@ type FirebaseSongSearchProps = {
 export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
   const [songs, setSongs] = React.useState<FirebaseSong[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const { churchId, isLoading: churchResolving } = useActiveChurchScope();
+  const scope = useContentTenantScope();
 
   React.useEffect(() => {
     (async () => {
@@ -31,15 +30,15 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
         return;
       }
 
-      if (MULTI_CHURCH_ENABLED && !churchId) {
+      if (scope.blocked) {
         setSongs([]);
-        setLoading(churchResolving);
+        setLoading(scope.isLoading);
         return;
       }
 
       setLoading(true);
       try {
-        const results = await searchSongs(churchId, query);
+        const results = await searchSongs(scope, query);
         setSongs(results);
       } catch {
         setSongs([]);
@@ -47,7 +46,7 @@ export function FirebaseSongSearch({ query }: FirebaseSongSearchProps) {
         setLoading(false);
       }
     })();
-  }, [churchId, churchResolving, query]);
+  }, [scope.blocked, scope.isLoading, scope.branchId, scope.churchId, scope.organizationId, query]);
 
   if (!query.trim()) return null;
 

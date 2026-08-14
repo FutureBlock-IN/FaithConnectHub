@@ -1,8 +1,10 @@
 "use client";
 
-import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useChurchManagementAccess } from "@/hooks/use-church-management-access";
 
-/** Convenience hook for inline admin gating on public pages. */
+/** True when the user can manage church content (admin sidebar / inline actions). */
 export function useIsAdmin(): boolean {
-  return useFirebaseAuth().isAdmin;
+  const { canAccessChurchManagement, loading } = useChurchManagementAccess();
+  if (loading) return false;
+  return canAccessChurchManagement;
 }

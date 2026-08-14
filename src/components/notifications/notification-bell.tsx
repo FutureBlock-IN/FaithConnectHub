@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, BookOpen, CalendarDays, Church, HeartHandshake, Loader2, Music } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, Church, HeartHandshake, Loader2, Music, Users } from "lucide-react";
 
 import type { FirebaseNotification } from "@/types/firebase-notification";
 
@@ -48,7 +48,10 @@ function NotificationTypeIcon({
     case "event":
       return <CalendarDays className={className} aria-hidden />;
     case "prayer":
+    case "prayer_request_submitted":
       return <HeartHandshake className={className} aria-hidden />;
+    case "membership_approved":
+      return <Users className={className} aria-hidden />;
     default:
       return <Music className={className} aria-hidden />;
   }
@@ -65,6 +68,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     setLoading(true);
 
     const unsubscribeNotifications = subscribeToNotifications(
+      userId,
       (items) => {
         setNotifications(items);
         setLoading(false);

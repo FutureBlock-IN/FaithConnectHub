@@ -1,4 +1,4 @@
-export type FavoriteItemType = "song" | "sermon" | "article";
+export type FavoriteItemType = "song" | "sermon" | "article" | "event";
 
 export type FirebaseFavorite = {
   id: string;

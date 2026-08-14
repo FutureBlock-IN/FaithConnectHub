@@ -61,10 +61,17 @@ export function normalizeSubscriptionFromFirestore(
   data: Record<string, unknown>
 ): ChurchSubscription {
   const interval = String(data.billingInterval ?? "").trim().toLowerCase();
+  const organizationId = String(
+    data.organizationId ?? data.churchId ?? id
+  ).trim();
+  const legacyChurchId = String(data.churchId ?? "").trim();
 
   return {
     id,
-    churchId: String(data.churchId ?? id).trim(),
+    organizationId,
+    churchId: legacyChurchId && legacyChurchId !== organizationId
+      ? legacyChurchId
+      : undefined,
     planId: normalizePlanId(data.planId),
     status: normalizeStatus(data.status),
     billingInterval:
@@ -101,11 +108,13 @@ export function normalizeSubscriptionFromFirestore(
   };
 }
 
-export function buildDefaultSubscription(churchId: string): ChurchSubscription {
+export function buildDefaultSubscription(
+  organizationId: string
+): ChurchSubscription {
   const now = Date.now();
   return {
-    id: churchId,
-    churchId,
+    id: organizationId,
+    organizationId,
     planId: "free",
     status: "active",
     cancelAtPeriodEnd: false,
@@ -115,12 +124,12 @@ export function buildDefaultSubscription(churchId: string): ChurchSubscription {
 }
 
 export function buildSubscriptionCreatePayload(
-  churchId: string,
+  organizationId: string,
   planId: PlanId = "free"
 ): Record<string, unknown> {
   const now = Date.now();
   return {
-    churchId,
+    organizationId,
     planId,
     status: "active",
     cancelAtPeriodEnd: false,

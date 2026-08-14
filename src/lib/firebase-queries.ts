@@ -29,7 +29,10 @@ import {
 } from "./song-firestore";
 import { filterRecordsByChurch } from "./church-scope";
 import { buildAdminChurchScopedQuery, buildChurchScopedQuery } from "./church-query-builder";
+import type { TenantScope } from "./organization/tenant-scope";
+import { fetchTenantCollection } from "./tenant-content-server";
 import { isRecoverableAdminError, wrapFirebaseError } from "./firebase-utils";
+import { mergeTenantFieldsIntoPayload } from "./organization/resolve-tenant-scope";
 
 const SONGS_COLLECTION = "songs";
 
@@ -85,66 +88,25 @@ function normalizeSong(id: string, data: Record<string, unknown>): FirebaseSong 
   return normalizeSongFromFirestore(id, data);
 }
 
-async function fetchAllSongs(churchId: string): Promise<FirebaseSong[]> {
-  const adminDb = getAdminDb();
-
-  if (adminDb) {
-    try {
-      const snapshot = await buildAdminChurchScopedQuery(
-        adminDb,
-        SONGS_COLLECTION,
-        churchId,
-        "createdAt",
-        "desc"
-      ).get();
-
-      const songs = snapshot.docs.map((docSnap) =>
-        normalizeSong(docSnap.id, docSnap.data() as Record<string, unknown>)
-      );
-      if (songs.length > 0) return songs;
-    } catch (error) {
-      if (!isRecoverableAdminError(error)) {
-        wrapFirebaseError(error);
-      }
-      console.warn("[Firebase] Admin SDK unavailable, using client SDK:", error);
+async function fetchAllSongs(scope: TenantScope): Promise<FirebaseSong[]> {
+  return fetchTenantCollection(
+    SONGS_COLLECTION,
+    scope,
+    normalizeSong,
+    {
+      orderField: "createdAt",
+      orderDirection: "desc",
+      defaultBranchId: scope.branchId ?? null,
     }
-  }
-
-  try {
-    const q = buildChurchScopedQuery(
-      collection(db, SONGS_COLLECTION),
-      churchId,
-      "createdAt",
-      "desc"
-    );
-    const snapshot = await getDocs(q);
-    const songs = snapshot.docs.map((docSnap) =>
-      normalizeSong(docSnap.id, docSnap.data() as Record<string, unknown>)
-    );
-    if (songs.length > 0) return songs;
-  } catch {
-    // Fall through to legacy migration fetch
-  }
-
-  try {
-    const snapshot = await getDocs(collection(db, SONGS_COLLECTION));
-    const songs = snapshot.docs
-      .map((docSnap) =>
-        normalizeSong(docSnap.id, docSnap.data() as Record<string, unknown>)
-      )
-      .sort((a, b) => b.createdAt - a.createdAt);
-    return filterRecordsByChurch(songs, churchId);
-  } catch (innerError) {
-    wrapFirebaseError(innerError);
-  }
+  );
 }
 
-export async function getAllSongs(churchId: string): Promise<FirebaseSong[]> {
-  return fetchAllSongs(churchId);
+export async function getAllSongs(scope: TenantScope): Promise<FirebaseSong[]> {
+  return fetchAllSongs(scope);
 }
 
-export async function getPublishedSongs(churchId: string): Promise<FirebaseSong[]> {
-  const songs = await fetchAllSongs(churchId);
+export async function getPublishedSongs(scope: TenantScope): Promise<FirebaseSong[]> {
+  const songs = await fetchAllSongs(scope);
   return filterPublishedSongs(songs);
 }
 
@@ -209,13 +171,13 @@ export async function getSongById(songId: string): Promise<FirebaseSong | null> 
 // Find searchSongs and update the filter to search all three title fields:
  
 export async function searchSongs(
-  churchId: string,
+  scope: TenantScope,
   searchQuery: string
 ): Promise<FirebaseSong[]> {
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const songs = await getPublishedSongs(churchId);
+  const songs = await getPublishedSongs(scope);
   return songs.filter((song) => {
     const haystack = [
       song.songTitle,
@@ -236,9 +198,10 @@ export async function searchSongs(
 
 export async function addSong(
   churchId: string,
-  songData: CreateSongInput
+  songData: CreateSongInput,
+  options?: { branchId?: string; organizationIdFallback?: string }
 ): Promise<string> {
-  const payload = toSongFirestorePayload({
+  const basePayload = toSongFirestorePayload({
     ...songData,
     category: songData.category ?? "Worship",
     featured: songData.featured ?? false,
@@ -246,19 +209,23 @@ export async function addSong(
     tags: songData.tags ?? [],
   });
 
+  const payload = await mergeTenantFieldsIntoPayload(
+    basePayload as Record<string, unknown>,
+    churchId,
+    {
+      branchId: options?.branchId,
+      organizationIdFallback: options?.organizationIdFallback,
+    }
+  );
+
   const adminDb = getAdminDb();
 
   if (adminDb) {
     try {
-      console.log("[Firebase] Adding song (admin):", {
-        title: songData.songTitle,
-      });
       const docRef = await adminDb.collection(SONGS_COLLECTION).add({
         ...payload,
-        churchId,
         createdAt: FieldValue.serverTimestamp(),
       });
-      console.log("[Firebase] Song added (admin):", docRef.id);
       return docRef.id;
     } catch (error) {
       if (!isRecoverableAdminError(error)) {
@@ -269,15 +236,10 @@ export async function addSong(
   }
 
   try {
-    console.log("[Firebase] Adding song (client):", {
-      title: songData.songTitle,
-    });
     const docRef = await addDoc(collection(db, SONGS_COLLECTION), {
       ...payload,
-      churchId,
       createdAt: Timestamp.now(),
     });
-    console.log("[Firebase] Song added (client):", docRef.id);
     return docRef.id;
   } catch (error) {
     wrapFirebaseError(error);
@@ -293,12 +255,7 @@ export async function updateSong(
 
   if (adminDb) {
     try {
-      console.log("[Firebase] Updating song (admin):", {
-        songId,
-        updates: Object.keys(payload),
-      });
       await adminDb.collection(SONGS_COLLECTION).doc(songId).update(payload);
-      console.log("[Firebase] Song updated (admin):", songId);
       return;
     } catch (error) {
       if (!isRecoverableAdminError(error)) {
@@ -309,13 +266,8 @@ export async function updateSong(
   }
 
   try {
-    console.log("[Firebase] Updating song (client):", {
-      songId,
-      updates: Object.keys(payload),
-    });
     const songRef = doc(db, SONGS_COLLECTION, songId);
     await updateDoc(songRef, payload);
-    console.log("[Firebase] Song updated (client):", songId);
   } catch (error) {
     wrapFirebaseError(error);
   }
@@ -326,9 +278,7 @@ export async function deleteSong(songId: string): Promise<void> {
 
   if (adminDb) {
     try {
-      console.log("[Firebase] Deleting song from Firestore:", songId);
       await adminDb.collection(SONGS_COLLECTION).doc(songId).delete();
-      console.log("[Firebase] Song deleted successfully:", songId);
       return;
     } catch (error) {
       if (!isRecoverableAdminError(error)) {
@@ -339,10 +289,8 @@ export async function deleteSong(songId: string): Promise<void> {
   }
 
   try {
-    console.log("[Firebase] Deleting song from Firestore (client):", songId);
     const songRef = doc(db, SONGS_COLLECTION, songId);
     await deleteDoc(songRef);
-    console.log("[Firebase] Song deleted successfully (client):", songId);
   } catch (error) {
     wrapFirebaseError(error);
   }

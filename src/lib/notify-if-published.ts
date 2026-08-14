@@ -73,6 +73,8 @@ export async function notifyIfNewlyPublished(input: {
   isPublished: boolean;
   wasPublished?: boolean;
   idToken?: string;
+  churchId?: string;
+  organizationId?: string;
 }): Promise<void> {
   const isNewPublish = input.isPublished && !input.wasPublished;
   if (!isNewPublish) return;
@@ -83,6 +85,8 @@ export async function notifyIfNewlyPublished(input: {
       contentId: input.contentId,
       contentTitle: input.contentTitle,
       image: input.image,
+      churchId: input.churchId,
+      organizationId: input.organizationId,
     });
   } catch (error) {
     console.error("[notifyIfNewlyPublished] notification dispatch failed:", error);
@@ -98,6 +102,8 @@ export async function notifyIfEventPublished(input: {
   status: EventStatus;
   wasStatus?: EventStatus;
   idToken?: string;
+  churchId?: string;
+  organizationId?: string;
 }): Promise<void> {
   const isNewPublish =
     input.status === "published" && input.wasStatus !== "published";
@@ -109,6 +115,8 @@ export async function notifyIfEventPublished(input: {
       contentId: input.contentId,
       contentTitle: input.contentTitle,
       image: input.image,
+      churchId: input.churchId,
+      organizationId: input.organizationId,
     });
   } catch (error) {
     console.error("[notifyIfEventPublished] notification dispatch failed:", error);
@@ -141,19 +149,11 @@ export async function notifyIfPrayerApproved(input: {
   previousStatus: PrayerRequestStatus;
   newStatus: PrayerRequestStatus;
   idToken?: string;
+  churchId?: string;
+  organizationId?: string;
 }): Promise<void> {
   if (input.newStatus !== "approved" || input.previousStatus === "approved") {
     return;
-  }
-
-  try {
-    await createPublishNotification({
-      type: "prayer",
-      contentId: input.contentId,
-      contentTitle: input.contentTitle,
-    });
-  } catch (error) {
-    console.error("[notifyIfPrayerApproved] notification dispatch failed:", error);
   }
 
   dispatchPrayerApprovedEmail(input.contentId, input.idToken);

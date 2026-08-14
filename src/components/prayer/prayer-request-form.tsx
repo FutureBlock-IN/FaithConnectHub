@@ -28,6 +28,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { useOrganizationOptional } from "@/context/organization-context";
+import { useActiveBranchOptional } from "@/context/active-branch-context";
 import { useActiveChurchScope } from "@/context/active-church-context";
 import { getLegacyDefaultChurchId } from "@/lib/church-scope";
 import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
@@ -41,7 +43,7 @@ import {
 } from "@/lib/prayer-request-validation";
 
 const SUCCESS_MESSAGE =
-  "Thank you for sharing your prayer request. It has been submitted for review and will appear on the community wall once approved.";
+  "Your prayer request has been submitted. Our church admin will review it shortly.";
 
 function getDefaultName(
   profile: { firstName?: string; lastName?: string } | null,
@@ -67,6 +69,8 @@ export function PrayerRequestForm({
 }: PrayerRequestFormProps) {
   const router = useRouter();
   const { authUser, profile, loading, user } = useFirebaseAuth();
+  const organization = useOrganizationOptional();
+  const activeBranch = useActiveBranchOptional();
   const { churchId, isLoading: churchLoading } = useActiveChurchScope();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -122,7 +126,15 @@ export function PrayerRequestForm({
           ...values,
           name: resolvedName,
         },
-        { email: authUser.email }
+        {
+          email: authUser.email,
+          organizationId:
+            organization?.organization?.id ?? profile?.organizationId ?? undefined,
+          branchId:
+            activeBranch?.activeBranchId ??
+            profile?.activeBranchId ??
+            undefined,
+        }
       );
 
       if (user) {
@@ -175,9 +187,9 @@ export function PrayerRequestForm({
   if (submitted) {
     const successContent = (
       <div className="space-y-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/60">
-          Submitted
-        </p>
+        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl">
+          🙏
+        </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
           {SUCCESS_MESSAGE}
         </p>
@@ -220,6 +232,8 @@ export function PrayerRequestForm({
     );
   }
 
+  const isDialog = variant === "dialog";
+
   const formBody = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -228,7 +242,7 @@ export function PrayerRequestForm({
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Prayer Title</FormLabel>
+              <FormLabel>{isDialog ? "Title" : "Prayer Title"}</FormLabel>
               <FormControl>
                 <Input
                   placeholder="Brief title for your request"
@@ -247,11 +261,11 @@ export function PrayerRequestForm({
           name="request"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Prayer Request</FormLabel>
+              <FormLabel>{isDialog ? "Description" : "Prayer Request"}</FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="Share your prayer need with the community..."
-                  rows={6}
+                  rows={isDialog ? 5 : 6}
                   maxLength={PRAYER_REQUEST_MAX}
                   {...field}
                 />
@@ -292,9 +306,13 @@ export function PrayerRequestForm({
           render={({ field }) => (
             <FormItem className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 p-4">
               <div className="space-y-1">
-                <FormLabel>Submit anonymously</FormLabel>
+                <FormLabel>
+                  {isDialog ? "Make this anonymous" : "Submit anonymously"}
+                </FormLabel>
                 <FormDescription>
-                  Your name will not be shown publicly if approved.
+                  {isDialog ?
+                    "Your name will show as Anonymous if approved."
+                  : "Your name will not be shown publicly if approved."}
                 </FormDescription>
               </div>
               <FormControl>
@@ -304,23 +322,25 @@ export function PrayerRequestForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="shareWithCommunity"
-          render={({ field }) => (
-            <FormItem className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 p-4">
-              <div className="space-y-1">
-                <FormLabel>Share with community</FormLabel>
-                <FormDescription>
-                  When approved, your request can appear on the public prayer wall.
-                </FormDescription>
-              </div>
-              <FormControl>
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-            </FormItem>
-          )}
-        />
+        {!isDialog ?
+          <FormField
+            control={form.control}
+            name="shareWithCommunity"
+            render={({ field }) => (
+              <FormItem className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 p-4">
+                <div className="space-y-1">
+                  <FormLabel>Share with community</FormLabel>
+                  <FormDescription>
+                    When approved, your request can appear on the public prayer wall.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        : null}
 
         {!isAnonymous ?
           <FormField
@@ -366,8 +386,10 @@ export function PrayerRequestForm({
           >
             {form.formState.isSubmitting ?
               <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+            : isDialog ?
+              null
             : <Send className="mr-2 size-4" aria-hidden />}
-            Submit Prayer Request
+            {isDialog ? "Submit Request" : "Submit Prayer Request"}
           </Button>
         </div>
       </form>

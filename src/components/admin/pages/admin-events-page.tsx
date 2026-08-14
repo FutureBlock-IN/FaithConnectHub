@@ -9,6 +9,7 @@ import { AdminChurchNotice } from "@/components/admin/admin-church-notice";
 import { AdminListPagination } from "@/components/admin/admin-list-pagination";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminToolbar } from "@/components/admin/admin-toolbar";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { adminSectionClass } from "@/lib/responsive-classes";
 import {
   Select,
@@ -22,6 +23,7 @@ import {
   useAdminChurchId,
   useAdminEvents,
 } from "@/hooks/use-admin-collections";
+import { useInvalidateAdminQueries } from "@/hooks/use-invalidate-admin-queries";
 import { filterBySearch, paginateItems } from "@/lib/admin-list-utils";
 import type { FirebaseEvent } from "@/types/firebase-event";
 
@@ -37,7 +39,9 @@ export function AdminEventsPageClient({ embedded = false }: { embedded?: boolean
   const searchParams = useSearchParams();
   const adminChurchId = useAdminChurchId();
   const blocked = useAdminChurchBlocked();
-  const { data: events, loading } = useAdminEvents();
+  const { data: events, loading, loadMore, hasMore, loadingMore } =
+    useAdminEvents();
+  const { invalidateEvents } = useInvalidateAdminQueries();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<EventStatusFilter>("all");
@@ -127,7 +131,7 @@ export function AdminEventsPageClient({ embedded = false }: { embedded?: boolean
           setSelectedEvent(event);
           setModalOpen(true);
         }}
-        onDelete={() => {}}
+        onDelete={() => void invalidateEvents()}
       />
 
       <AdminListPagination
@@ -135,6 +139,12 @@ export function AdminEventsPageClient({ embedded = false }: { embedded?: boolean
         totalPages={totalPages}
         totalItems={filteredEvents.length}
         onPageChange={setPage}
+      />
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
       />
 
       <AddEventModal

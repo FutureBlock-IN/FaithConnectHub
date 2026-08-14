@@ -72,7 +72,7 @@ export function SermonList({
             <Church className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-sm font-medium">No sermons yet</p>
+            <p className="text-sm font-medium">No sermons have been created for this church yet.</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Add your first sermon to get started.
             </p>

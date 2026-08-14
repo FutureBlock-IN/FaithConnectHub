@@ -7,10 +7,12 @@ import { getAdminDb } from "@/lib/firebase-admin";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const requestedChurchId = searchParams.get("churchId");
+  const requestedOrganizationId = searchParams.get("organizationId");
 
   const verified = await verifyAdminAnalyticsRequest(
     request,
-    requestedChurchId
+    requestedChurchId,
+    requestedOrganizationId
   );
 
   if (!verified.ok) {
@@ -36,9 +38,14 @@ export async function GET(request: Request) {
   const churchScope = verified.admin.isSuperAdmin
     ? requestedChurchId?.trim() || null
     : verified.admin.churchScope;
+  const organizationScope = verified.admin.organizationScope;
 
   try {
-    const insights = await loadAdminAnalyticsInsights(adminDb, churchScope);
+    const insights = await loadAdminAnalyticsInsights(
+      adminDb,
+      churchScope,
+      organizationScope
+    );
     return NextResponse.json(insights);
   } catch (error) {
     console.error("[admin/analytics/insights]", error);

@@ -10,9 +10,9 @@ import {
 
   getCountFromServer,
 
-  limit,
+  getDocs,
 
-  onSnapshot,
+  limit,
 
   orderBy,
 
@@ -84,6 +84,7 @@ import {
 
 import { FAVORITES_COLLECTION } from "@/lib/favorite-firestore";
 
+import { loadAdminAnalyticsCollections } from "@/lib/admin-analytics-load";
 import { db } from "@/lib/firebase";
 
 import { firebaseAuth } from "@/lib/firebase-auth-service";
@@ -109,6 +110,8 @@ import { normalizeSongFromFirestore } from "@/lib/song-firestore";
 import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 
 import { useAdminChurchId, useIsPlatformSuperAdmin } from "@/hooks/use-admin-church-id";
+import { useOrganizationOptional } from "@/context/organization-context";
+import { isMultiChurchOrgWorkspace } from "@/lib/organization/workspace-type";
 
 
 
@@ -176,6 +179,7 @@ export type AdminAnalyticsState = {
 
   usingInsightsApi: boolean;
 
+  refresh: () => void;
 };
 
 
@@ -196,10 +200,8 @@ function buildScopedQuery(
 
 
 
-  if (churchScope && MULTI_CHURCH_ENABLED) {
-
-    constraints.push(where("churchId", "==", churchScope));
-
+  if (churchScope?.trim()) {
+    constraints.push(where("churchId", "==", churchScope.trim()));
   }
 
 
@@ -249,12 +251,12 @@ export function useAdminAnalytics(): AdminAnalyticsState {
   const adminChurchId = useAdminChurchId();
 
   const isSuperAdmin = useIsPlatformSuperAdmin();
+  const organization = useOrganizationOptional()?.organization;
+  const isMultiOrg = isMultiChurchOrgWorkspace(organization);
+  const organizationScope =
+    isMultiOrg && organization?.id && !adminChurchId ? organization.id : null;
 
-  const churchScope = MULTI_CHURCH_ENABLED
-
-    ? isSuperAdmin ? null : adminChurchId
-
-    : null;
+  const churchScope = isSuperAdmin ? null : adminChurchId;
 
 
 
@@ -300,349 +302,50 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
   const [adminSdkUnavailable, setAdminSdkUnavailable] = useState(false);
 
+  const [refreshToken, setRefreshToken] = useState(0);
 
-
-  const sermonSnapshotsRef = useRef<Record<string, FirebaseSermon[]>>({});
-
-  const loadedCollectionsRef = useRef(0);
-
-  const expectedCollections = 6;
-
-
-
-  const markCollectionLoaded = useCallback(() => {
-
-    loadedCollectionsRef.current += 1;
-
-    if (loadedCollectionsRef.current >= expectedCollections) {
-
-      setLoading(false);
-
-    }
-
-  }, [expectedCollections]);
-
-
+  const refresh = useCallback(() => {
+    setInsightsLoading(true);
+    setRefreshToken((token) => token + 1);
+  }, []);
 
   useEffect(() => {
+    let cancelled = false;
 
-    loadedCollectionsRef.current = 0;
+    if (!isSuperAdmin && !churchScope) {
+      setSongs([]);
+      setSermons([]);
+      setArticles([]);
+      setEvents([]);
+      setPrayerRequests([]);
+      setDonations([]);
+      setUserCount(0);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
-
-
-    if (MULTI_CHURCH_ENABLED && !isSuperAdmin && !churchScope) {
-
-      setSongs([]);
-
-      setSermons([]);
-
-      setArticles([]);
-
-      setEvents([]);
-
-      setPrayerRequests([]);
-
-      setDonations([]);
-
-      setLoading(false);
-
-      return;
-
-    }
-
-
-
-    const unsubscribes: Array<() => void> = [];
-
-
-
-    unsubscribes.push(
-
-      onSnapshot(
-
-        buildScopedQuery("songs", churchScope, "createdAt"),
-
-        (snapshot) => {
-
-          setSongs(
-
-            snapshot.docs.map((docSnap) =>
-
-              normalizeSongFromFirestore(
-
-                docSnap.id,
-
-                docSnap.data() as Record<string, unknown>
-
-              )
-
-            )
-
-          );
-
-          markCollectionLoaded();
-
-        },
-
-        () => {
-
-          markCollectionLoaded();
-
-        }
-
-      )
-
-    );
-
-
-
-    sermonSnapshotsRef.current = {};
-
-    const scopedChurchId = churchScope;
-
-
-
-    for (const collectionName of [SERMONS_COLLECTION, LEGACY_SERMONS_COLLECTION]) {
-
-      unsubscribes.push(
-
-        onSnapshot(
-
-          buildScopedQuery(collectionName, churchScope, "dateCreated"),
-
-          (snapshot) => {
-
-            sermonSnapshotsRef.current[collectionName] = snapshot.docs.map(
-
-              (docSnap) =>
-
-                normalizeSermonFromFirestore(
-
-                  docSnap.id,
-
-                  docSnap.data() as Record<string, unknown>
-
-                )
-
-            );
-
-
-
-            const merged = mergeSermonsById(
-
-              Object.values(sermonSnapshotsRef.current)
-
-            );
-
-            setSermons(
-
-              MULTI_CHURCH_ENABLED && scopedChurchId
-
-                ? merged.filter((item) => item.churchId === scopedChurchId)
-
-                : merged
-
-            );
-
-
-
-            if (collectionName === SERMONS_COLLECTION) {
-
-              markCollectionLoaded();
-
-            }
-
-          },
-
-          () => {
-
-            sermonSnapshotsRef.current[collectionName] = [];
-
-            if (collectionName === SERMONS_COLLECTION) {
-
-              markCollectionLoaded();
-
-            }
-
-          }
-
-        )
-
-      );
-
-    }
-
-
-
-    unsubscribes.push(
-
-      onSnapshot(
-
-        buildScopedQuery("articles", churchScope, "dateCreated"),
-
-        (snapshot) => {
-
-          setArticles(
-
-            snapshot.docs.map((docSnap) =>
-
-              normalizeArticleFromFirestore(
-
-                docSnap.id,
-
-                docSnap.data() as Record<string, unknown>
-
-              )
-
-            )
-
-          );
-
-          markCollectionLoaded();
-
-        },
-
-        () => {
-
-          markCollectionLoaded();
-
-        }
-
-      )
-
-    );
-
-
-
-    unsubscribes.push(
-
-      onSnapshot(
-
-        buildScopedQuery(EVENTS_COLLECTION, churchScope, "eventDate"),
-
-        (snapshot) => {
-
-          setEvents(
-
-            snapshot.docs.map((docSnap) =>
-
-              normalizeEventFromFirestore(
-
-                docSnap.id,
-
-                docSnap.data() as Record<string, unknown>
-
-              )
-
-            )
-
-          );
-
-          markCollectionLoaded();
-
-        },
-
-        () => {
-
-          markCollectionLoaded();
-
-        }
-
-      )
-
-    );
-
-
-
-    unsubscribes.push(
-
-      onSnapshot(
-
-        buildScopedQuery("prayerRequests", churchScope, "createdAt"),
-
-        (snapshot) => {
-
-          setPrayerRequests(
-
-            snapshot.docs.map((docSnap) =>
-
-              normalizePrayerRequestFromFirestore(
-
-                docSnap.id,
-
-                docSnap.data() as Record<string, unknown>
-
-              )
-
-            )
-
-          );
-
-          markCollectionLoaded();
-
-        },
-
-        () => {
-
-          markCollectionLoaded();
-
-        }
-
-      )
-
-    );
-
-
-
-    unsubscribes.push(
-
-      onSnapshot(
-
-        buildScopedQuery(DONATIONS_COLLECTION, churchScope, "createdAt"),
-
-        (snapshot) => {
-
-          setDonations(
-
-            snapshot.docs.map((docSnap) =>
-
-              normalizeDonationFromFirestore(
-
-                docSnap.id,
-
-                docSnap.data() as Record<string, unknown>
-
-              )
-
-            )
-
-          );
-
-          markCollectionLoaded();
-
-        },
-
-        () => {
-
-          markCollectionLoaded();
-
-        }
-
-      )
-
-    );
-
-
+    void loadAdminAnalyticsCollections(churchScope)
+      .then((data) => {
+        if (cancelled) return;
+        setSongs(data.songs);
+        setSermons(data.sermons);
+        setArticles(data.articles);
+        setEvents(data.events);
+        setPrayerRequests(data.prayerRequests);
+        setDonations(data.donations);
+        setUserCount(data.userCount);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
-
-      unsubscribes.forEach((unsubscribe) => unsubscribe());
-
+      cancelled = true;
     };
-
-  }, [churchScope, isSuperAdmin, markCollectionLoaded]);
+  }, [churchScope, isSuperAdmin, refreshToken]);
 
 
 
@@ -708,7 +411,7 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
   useEffect(() => {
 
-    if (MULTI_CHURCH_ENABLED && !isSuperAdmin && !churchScope) {
+    if (!isSuperAdmin && !churchScope && !organizationScope) {
 
       setInsightsLoading(false);
 
@@ -750,7 +453,7 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
       const countConstraints: QueryConstraint[] = [];
 
-      if (churchScope && MULTI_CHURCH_ENABLED) {
+      if (churchScope?.trim()) {
 
         countConstraints.push(where("churchId", "==", churchScope));
 
@@ -796,7 +499,7 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
       const recentUsersConstraints: QueryConstraint[] = [];
 
-      if (churchScope && MULTI_CHURCH_ENABLED) {
+      if (churchScope?.trim()) {
 
         recentUsersConstraints.push(where("churchId", "==", churchScope));
 
@@ -806,51 +509,27 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
 
 
-      clientUnsubscribes.push(
-
-        onSnapshot(
-
-          query(collection(db, "users"), ...recentUsersConstraints),
-
-          (snapshot) => {
-
-            if (cancelled) return;
-
-            setRecentUsers(
-
-              snapshot.docs.map((docSnap) =>
-
-                mapUserDocToRow(
-
-                  docSnap.id,
-
-                  docSnap.data() as Record<string, unknown>
-
-                )
-
+      void getDocs(query(collection(db, "users"), ...recentUsersConstraints))
+        .then((snapshot) => {
+          if (cancelled) return;
+          const seen = new Set<string>();
+          const rows: RecentUserRow[] = [];
+          for (const docSnap of snapshot.docs) {
+            if (seen.has(docSnap.id)) continue;
+            seen.add(docSnap.id);
+            rows.push(
+              mapUserDocToRow(
+                docSnap.id,
+                docSnap.data() as Record<string, unknown>
               )
-
             );
-
-            setInsightsLoading(false);
-
-          },
-
-          () => {
-
-            if (!cancelled) {
-
-              setInsightsLoading(false);
-
-            }
-
           }
-
-        )
-
-      );
-
-
+          setRecentUsers(rows);
+          setInsightsLoading(false);
+        })
+        .catch(() => {
+          if (!cancelled) setInsightsLoading(false);
+        });
 
       refreshUserCount();
 
@@ -932,99 +611,49 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
 
 
-      clientUnsubscribes.push(
-
-        onSnapshot(
-
-          collection(db, FAVORITES_COLLECTION),
-
-          (snapshot) => {
-
-            favoriteRecords.length = 0;
-
-            for (const docSnap of snapshot.docs) {
-
-              const record = docSnap.data();
-
-              const itemType = String(record.itemType ?? "");
-
-              const itemId = String(record.itemId ?? "");
-
-              if (itemType === "song" && allowedSongIds.has(itemId)) {
-
-                favoriteRecords.push({ itemId, itemType });
-
-              } else if (itemType === "sermon" && allowedSermonIds.has(itemId)) {
-
-                favoriteRecords.push({ itemId, itemType });
-
-              } else if (itemType === "article" && allowedArticleIds.has(itemId)) {
-
-                favoriteRecords.push({ itemId, itemType });
-
-              }
-
+      void getDocs(collection(db, FAVORITES_COLLECTION))
+        .then((snapshot) => {
+          if (cancelled) return;
+          favoriteRecords.length = 0;
+          for (const docSnap of snapshot.docs) {
+            const record = docSnap.data();
+            const itemType = String(record.itemType ?? "");
+            const itemId = String(record.itemId ?? "");
+            if (itemType === "song" && allowedSongIds.has(itemId)) {
+              favoriteRecords.push({ itemId, itemType });
+            } else if (itemType === "sermon" && allowedSermonIds.has(itemId)) {
+              favoriteRecords.push({ itemId, itemType });
+            } else if (itemType === "article" && allowedArticleIds.has(itemId)) {
+              favoriteRecords.push({ itemId, itemType });
             }
-
-            publishLiveInsights();
-
-          },
-
-          () => {
-
-            // Engagement metrics unavailable without Admin SDK or super-admin read access.
-
           }
+          publishLiveInsights();
+        })
+        .catch(() => {
+          // Engagement metrics unavailable without read access.
+        });
 
-        )
-
-      );
 
 
-
-      clientUnsubscribes.push(
-
-        onSnapshot(
-
-          collection(db, RECENTLY_VIEWED_COLLECTION),
-
-          (snapshot) => {
-
-            viewedRecords.length = 0;
-
-            for (const docSnap of snapshot.docs) {
-
-              const record = docSnap.data();
-
-              const itemType = String(record.itemType ?? "");
-
-              const itemId = String(record.itemId ?? "");
-
-              if (itemType === "sermon" && allowedSermonIds.has(itemId)) {
-
-                viewedRecords.push({ itemId, itemType });
-
-              } else if (itemType === "article" && allowedArticleIds.has(itemId)) {
-
-                viewedRecords.push({ itemId, itemType });
-
-              }
-
+      void getDocs(collection(db, RECENTLY_VIEWED_COLLECTION))
+        .then((snapshot) => {
+          if (cancelled) return;
+          viewedRecords.length = 0;
+          for (const docSnap of snapshot.docs) {
+            const record = docSnap.data();
+            const itemType = String(record.itemType ?? "");
+            const itemId = String(record.itemId ?? "");
+            if (itemType === "sermon" && allowedSermonIds.has(itemId)) {
+              viewedRecords.push({ itemId, itemType });
+            } else if (itemType === "article" && allowedArticleIds.has(itemId)) {
+              viewedRecords.push({ itemId, itemType });
             }
-
-            publishLiveInsights();
-
-          },
-
-          () => {
-
-            // Engagement metrics unavailable without Admin SDK or super-admin read access.
-
           }
-
-        )
-
-      );
+          publishLiveInsights();
+        })
+        .catch(() => {
+          // Engagement metrics unavailable without read access.
+        });
 
     }
 
@@ -1054,10 +683,11 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
         const params = new URLSearchParams();
 
-        if (churchScope && MULTI_CHURCH_ENABLED) {
-
+        if (churchScope?.trim()) {
           params.set("churchId", churchScope);
-
+        }
+        if (organizationScope?.trim()) {
+          params.set("organizationId", organizationScope);
         }
 
 
@@ -1146,29 +776,15 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
     void loadInsightsFromApi();
 
-    const interval = window.setInterval(() => {
-
-      if (apiActive) {
-
-        void loadInsightsFromApi();
-
-      }
-
-    }, 60_000);
-
-
-
     return () => {
 
       cancelled = true;
-
-      window.clearInterval(interval);
 
       clientUnsubscribes.forEach((unsubscribe) => unsubscribe());
 
     };
 
-  }, [articleItems, churchScope, isSuperAdmin, sermonItems, songItems]);
+  }, [articleItems, churchScope, organizationScope, isSuperAdmin, refreshToken, sermonItems, songItems]);
 
 
 
@@ -1222,18 +838,12 @@ export function useAdminAnalytics(): AdminAnalyticsState {
     [events]
   );
 
-  const scopeLabel = !MULTI_CHURCH_ENABLED
-
+  const scopeLabel = isSuperAdmin
     ? "Platform-wide"
-
-    : isSuperAdmin
-
-      ? "Platform-wide"
-
-      : churchScope
-
-        ? "Church scope"
-
+    : churchScope
+      ? "Church scope"
+      : organizationScope
+        ? "Organization scope"
         : "No church selected";
 
 
@@ -1286,6 +896,7 @@ export function useAdminAnalytics(): AdminAnalyticsState {
 
     usingInsightsApi,
 
+    refresh,
   };
 
 }

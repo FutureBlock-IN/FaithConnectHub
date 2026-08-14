@@ -15,15 +15,75 @@ type UploadError = {
   details?: string;
 };
 
-export async function uploadSongFileLocal(
-  songId: string,
-  fileType: "cover" | "audio",
+export async function uploadOnboardingLogoLocal(
+  userId: string,
   formData: FormData,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  idToken?: string
 ): Promise<string> {
   const file = formData.get("file");
   if (!(file instanceof Blob)) {
     throw new Error("No file provided");
+  }
+
+  if (!idToken?.trim()) {
+    throw new Error("You must be signed in to upload files.");
+  }
+
+  onProgress?.(10);
+
+  const uploadFormData = new FormData();
+  uploadFormData.append("file", file);
+
+  onProgress?.(30);
+
+  const response = await fetch(
+    `/api/upload?type=cover&songId=${encodeURIComponent(userId)}&scope=onboarding`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: uploadFormData,
+    }
+  );
+
+  onProgress?.(80);
+
+  if (!response.ok) {
+    let errorMessage = `Upload failed with status ${response.status}`;
+    try {
+      const errorJson = (await response.json()) as UploadError;
+      if (errorJson.error) {
+        errorMessage = errorJson.details
+          ? `${errorJson.error}: ${errorJson.details}`
+          : errorJson.error;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data = (await response.json()) as UploadResponse;
+  onProgress?.(100);
+  return data.url;
+}
+
+export async function uploadSongFileLocal(
+  songId: string,
+  fileType: "cover" | "audio",
+  formData: FormData,
+  onProgress?: (percent: number) => void,
+  idToken?: string
+): Promise<string> {
+  const file = formData.get("file");
+  if (!(file instanceof Blob)) {
+    throw new Error("No file provided");
+  }
+
+  if (!idToken?.trim()) {
+    throw new Error("You must be signed in to upload files.");
   }
 
   onProgress?.(10);
@@ -34,14 +94,11 @@ export async function uploadSongFileLocal(
   onProgress?.(30);
 
   try {
-    console.log(`[LocalUpload] Starting ${fileType} upload for song ${songId}`, {
-      fileName: file instanceof File ? file.name : "blob",
-      fileSize: file.size,
-      mimeType: file.type,
-    });
-
     const response = await fetch(`/api/upload?type=${fileType}&songId=${songId}`, {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
       body: uploadFormData,
     });
 
@@ -64,12 +121,6 @@ export async function uploadSongFileLocal(
     }
 
     const data = (await response.json()) as UploadResponse;
-    console.log(`[LocalUpload] ${fileType} upload successful:`, {
-      url: data.url,
-      songId,
-      size: data.size,
-    });
-
     onProgress?.(100);
     return data.url;
   } catch (error) {

@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { doc, getDoc } from "firebase/firestore";
 import { CheckCircle2, Loader2, Ticket } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import { db } from "@/lib/firebase";
+import {
+  buildEventRegistrationId,
+  EVENT_REGISTRATIONS_COLLECTION,
+} from "@/lib/event-registration-firestore";
 
 type RegisterForEventButtonProps = {
   eventId: string;
@@ -20,6 +26,42 @@ export function RegisterForEventButton({
   const { authUser, profile, loading, user } = useFirebaseAuth();
   const [registering, setRegistering] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [checkingRegistration, setCheckingRegistration] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid || !eventId) {
+      setCheckingRegistration(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingRegistration(true);
+
+    async function loadExistingRegistration() {
+      try {
+        const registrationId = buildEventRegistrationId(eventId, user!.uid);
+        const snap = await getDoc(
+          doc(db, EVENT_REGISTRATIONS_COLLECTION, registrationId)
+        );
+
+        if (!cancelled && snap.exists()) {
+          setRegistered(true);
+        }
+      } catch {
+        // Ignore lookup errors — user can still attempt registration.
+      } finally {
+        if (!cancelled) {
+          setCheckingRegistration(false);
+        }
+      }
+    }
+
+    void loadExistingRegistration();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, eventId]);
 
   async function handleRegister() {
     if (!user) return;
@@ -65,7 +107,7 @@ export function RegisterForEventButton({
     }
   }
 
-  if (loading) {
+  if (loading || checkingRegistration) {
     return (
       <Button variant="outline" size="sm" className="rounded-full" disabled>
         <Loader2 className="mr-2 size-4 animate-spin" />

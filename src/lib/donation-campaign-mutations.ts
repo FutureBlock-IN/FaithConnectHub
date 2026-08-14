@@ -18,6 +18,7 @@ import {
   DONATION_CAMPAIGNS_COLLECTION,
 } from "./donation-firestore";
 import { db } from "./firebase";
+import { mergeClientTenantFields } from "./organization/tenant-scope";
 import { wrapFirebaseError } from "./firebase-utils";
 
 /**
@@ -25,9 +26,17 @@ import { wrapFirebaseError } from "./firebase-utils";
  * so security rules see request.auth (server actions do not attach auth).
  */
 export async function createDonationCampaign(
-  input: CreateDonationCampaignInput
+  input: CreateDonationCampaignInput & {
+    organizationId?: string;
+    branchId?: string;
+  }
 ): Promise<string> {
-  const payload = buildDonationCampaignCreatePayload(input);
+  const basePayload = buildDonationCampaignCreatePayload(input);
+  const payload = mergeClientTenantFields(basePayload, {
+    organizationId: input.organizationId,
+    churchId: input.churchId,
+    branchId: input.branchId,
+  });
   const now = Timestamp.now();
 
   try {

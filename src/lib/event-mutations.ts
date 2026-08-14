@@ -22,9 +22,14 @@ import {
   isRecoverableAdminError,
   wrapFirebaseError,
 } from "./firebase-utils";
+import { mergeTenantFieldsIntoPayload } from "./organization/resolve-tenant-scope";
 
 export async function createEvent(input: CreateEventInput): Promise<string> {
-  const payload = buildEventCreatePayload(input);
+  const basePayload = buildEventCreatePayload(input);
+  const payload = await mergeTenantFieldsIntoPayload(
+    basePayload,
+    input.churchId
+  );
   const adminDb = getAdminDb();
 
   if (adminDb) {

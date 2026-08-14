@@ -1,22 +1,24 @@
+import type { TenantScope } from "@/lib/organization/tenant-scope";
+
 import { SearchMenuClient } from "./search-menu-client";
 
 type NavbarSearchSectionProps = {
   className?: string;
   placeholder?: string;
   enableShortcut?: boolean;
-  churchId: string;
+  scope: TenantScope;
 };
 
 export function NavbarSearchSection({
   className,
   placeholder,
   enableShortcut,
-  churchId,
+  scope,
 }: NavbarSearchSectionProps) {
   return (
     <SearchMenuClient
       className={className}
-      churchId={churchId}
+      scope={scope}
       placeholder={placeholder}
       enableShortcut={enableShortcut}
     />

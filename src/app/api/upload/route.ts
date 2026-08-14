@@ -4,7 +4,9 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { uploadSongFileServer } from "@/lib/firebase-storage-upload";
-import { getAdminStorageBucketName, isAdminConfigured } from "@/lib/firebase-admin";
+import { getAdminDb, getAdminStorageBucketName, isAdminConfigured } from "@/lib/firebase-admin";
+import { getMembershipForUser } from "@/lib/organization/organization-server";
+import { roleMeetsMinimum } from "@/types/membership";
 
 /**
  * Upload handler for local file storage
@@ -50,8 +52,58 @@ function getFileExtension(mimeType: string, fileName: string): string {
   return "bin";
 }
 
+async function verifyUploadAuth(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const scope = searchParams.get("scope");
+
+  const { getAuth } = await import("firebase-admin/auth");
+  const decoded = await getAuth().verifyIdToken(token);
+
+  if (scope === "onboarding") {
+    return { uid: decoded.uid };
+  }
+
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 503 }
+    );
+  }
+
+  const userSnap = await adminDb.collection("users").doc(decoded.uid).get();
+  const organizationId = String(userSnap.data()?.organizationId ?? "").trim();
+
+  if (!organizationId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const membership = await getMembershipForUser(organizationId, decoded.uid);
+  if (
+    !membership ||
+    membership.status !== "active" ||
+    !roleMeetsMinimum(membership.role, "church_admin")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return { uid: decoded.uid };
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await verifyUploadAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const typeParam = searchParams.get("type"); // "cover" or "audio"
     const songId = searchParams.get("songId");
@@ -95,13 +147,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    console.log(`[Upload] Starting ${type} upload for song ${songId}`, {
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type,
-    });
-
     // File type validation
     const fileName = file.name || `${songId}`;
     const ext = getFileExtension(file.type, fileName);
@@ -144,13 +189,7 @@ export async function POST(request: NextRequest) {
     if (isAdminConfigured()) {
       try {
         const bucketName = getAdminStorageBucketName();
-        console.log("[Upload] Admin Storage bucket configured:", bucketName);
         const url = await uploadSongFileServer(songId, type, formData);
-        console.log(`[Upload] Server storage upload complete for ${type}:`, {
-          url,
-          songId,
-          bucketName,
-        });
         return NextResponse.json({
           success: true,
           url,
@@ -167,7 +206,6 @@ export async function POST(request: NextRequest) {
     try {
       if (!existsSync(typeDir)) {
         await mkdir(typeDir, { recursive: true });
-        console.log(`[Upload] Created directory: ${typeDir}`);
       }
     } catch (dirError) {
       console.error("[Upload] Failed to create directory:", dirError);
@@ -184,10 +222,6 @@ export async function POST(request: NextRequest) {
     // Write file
     try {
       await writeFile(filePath, buffer);
-      console.log(`[Upload] File saved successfully`, {
-        filePath,
-        size: buffer.length,
-      });
     } catch (writeError) {
       console.error("[Upload] Failed to write file:", writeError);
       throw writeError;
@@ -195,12 +229,6 @@ export async function POST(request: NextRequest) {
 
     // Return relative URL that will work in browser
     const url = `/uploads/${type}/${fileNameWithExt}`;
-    console.log(`[Upload] Upload complete for ${type}:`, {
-      url,
-      songId,
-      fileName: fileNameWithExt,
-    });
-
     return NextResponse.json({
       success: true,
       url,

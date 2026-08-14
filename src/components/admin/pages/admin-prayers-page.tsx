@@ -6,6 +6,7 @@ import { PrayerRequestList } from "@/components/admin/prayer-request-list";
 import { AdminChurchNotice } from "@/components/admin/admin-church-notice";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminToolbar } from "@/components/admin/admin-toolbar";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { adminSectionClass } from "@/lib/responsive-classes";
 import {
   useAdminChurchBlocked,
@@ -16,7 +17,8 @@ import { getPrayerRequestDisplayName } from "@/lib/prayer-request-firestore";
 
 export function AdminPrayersPageClient({ embedded = false }: { embedded?: boolean }) {
   const blocked = useAdminChurchBlocked();
-  const { data: requests, loading } = useAdminPrayerRequests();
+  const { data: requests, loading, loadMore, hasMore, loadingMore } =
+    useAdminPrayerRequests();
   const [search, setSearch] = useState("");
 
   const filteredRequests = useMemo(
@@ -51,6 +53,12 @@ export function AdminPrayersPageClient({ embedded = false }: { embedded?: boolea
       />
 
       <PrayerRequestList requests={filteredRequests} loading={loading} />
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   );
 }

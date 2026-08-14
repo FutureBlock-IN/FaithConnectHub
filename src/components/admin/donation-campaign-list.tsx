@@ -102,7 +102,7 @@ export function DonationCampaignList({
         {campaigns.length === 0 ?
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <HeartHandshake className="h-5 w-5 text-muted-foreground" />
-            <p className="text-sm font-medium">No campaigns yet</p>
+            <p className="text-sm font-medium">No campaigns have been created for this church yet.</p>
           </div>
         : <div className="divide-y divide-border/40">
             {campaigns.map((campaign) => {

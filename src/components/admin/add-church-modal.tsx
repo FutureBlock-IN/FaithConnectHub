@@ -19,6 +19,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { createChurch, updateChurch } from "@/lib/church-mutations";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
+import {
+  createChurchInOrganizationAction,
+  updateChurchInOrganizationAction,
+} from "@/lib/organization/organization-mutations";
 import { slugifyChurchSlug } from "@/lib/church-scope";
 import { uploadSongFileLocal } from "@/lib/local-upload";
 import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
@@ -26,8 +31,11 @@ import { MAX_IMAGE_SIZE_LABEL, validateImageFile } from "@/lib/upload-limits";
 type AddChurchModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (result?: { churchId: string; branchId: string }) => void;
   initialChurch?: FirebaseChurch | null;
+  organizationId?: string;
+  userId?: string;
+  userEmail?: string | null;
 };
 
 type ChurchFormState = {
@@ -73,7 +81,11 @@ export function AddChurchModal({
   onClose,
   onSave,
   initialChurch,
+  organizationId,
+  userId,
+  userEmail,
 }: AddChurchModalProps) {
+  const { user } = useFirebaseAuth();
   const [form, setForm] = useState<ChurchFormState>(EMPTY_FORM);
   const [logoFile, setLogoFile] = useState<File | undefined>();
   const [bannerFile, setBannerFile] = useState<File | undefined>();
@@ -154,10 +166,14 @@ export function AddChurchModal({
     reader.readAsDataURL(file);
   }
 
-  async function uploadImage(churchId: string, file: File): Promise<string> {
+  async function uploadImage(
+    churchId: string,
+    file: File,
+    idToken: string
+  ): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
-    return uploadSongFileLocal(churchId, "cover", formData);
+    return uploadSongFileLocal(churchId, "cover", formData, undefined, idToken);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -167,8 +183,27 @@ export function AddChurchModal({
       return;
     }
 
+    const useOrgFlow = Boolean(organizationId && userId);
+    if (useOrgFlow) {
+      if (!form.city.trim()) {
+        toast.error("City is required");
+        return;
+      }
+      if (!form.country.trim()) {
+        toast.error("Country is required");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const idToken = user ? await user.getIdToken() : undefined;
+      if (!idToken) {
+        toast.error("You must be signed in to upload files.");
+        setLoading(false);
+        return;
+      }
+
       const establishedYear = form.establishedYear.trim()
         ? Number.parseInt(form.establishedYear, 10)
         : undefined;
@@ -197,41 +232,90 @@ export function AddChurchModal({
       };
 
       if (initialChurch) {
-        await updateChurch(initialChurch.id, input);
+        if (useOrgFlow) {
+          await updateChurchInOrganizationAction(
+            organizationId!,
+            initialChurch.id,
+            userId!,
+            userEmail,
+            input
+          );
+        } else {
+          await updateChurch(initialChurch.id, input);
+        }
 
         let logoUrl = input.logoUrl;
         let bannerUrl = input.bannerUrl;
 
         if (logoFile) {
-          logoUrl = await uploadImage(initialChurch.id, logoFile);
+          logoUrl = await uploadImage(initialChurch.id, logoFile, idToken);
         }
         if (bannerFile) {
-          bannerUrl = await uploadImage(initialChurch.id, bannerFile);
+          bannerUrl = await uploadImage(initialChurch.id, bannerFile, idToken);
         }
 
         if (logoUrl !== input.logoUrl || bannerUrl !== input.bannerUrl) {
-          await updateChurch(initialChurch.id, { logoUrl, bannerUrl });
+          const imageUpdate = { logoUrl, bannerUrl };
+          if (useOrgFlow) {
+            await updateChurchInOrganizationAction(
+              organizationId!,
+              initialChurch.id,
+              userId!,
+              userEmail,
+              imageUpdate
+            );
+          } else {
+            await updateChurch(initialChurch.id, imageUpdate);
+          }
         }
 
         toast.success("Church updated successfully");
       } else {
-        const churchId = await createChurch(input);
+        const created =
+          useOrgFlow ?
+            await createChurchInOrganizationAction(
+              organizationId!,
+              userId!,
+              userEmail,
+              input
+            )
+          : { churchId: await createChurch(input), branchId: "" };
+
+        const churchId = created.churchId;
 
         let logoUrl = "";
         let bannerUrl = "";
 
         if (logoFile) {
-          logoUrl = await uploadImage(churchId, logoFile);
+          logoUrl = await uploadImage(churchId, logoFile, idToken);
         }
         if (bannerFile) {
-          bannerUrl = await uploadImage(churchId, bannerFile);
+          bannerUrl = await uploadImage(churchId, bannerFile, idToken);
         }
 
         if (logoUrl || bannerUrl) {
-          await updateChurch(churchId, { logoUrl, bannerUrl });
+          const imageUpdate = { logoUrl, bannerUrl };
+          if (useOrgFlow) {
+            await updateChurchInOrganizationAction(
+              organizationId!,
+              churchId,
+              userId!,
+              userEmail,
+              imageUpdate
+            );
+          } else {
+            await updateChurch(churchId, imageUpdate);
+          }
         }
 
         toast.success("Church created successfully");
+        onSave(
+          useOrgFlow ?
+            { churchId, branchId: created.branchId }
+          : { churchId, branchId: "" }
+        );
+        onClose();
+        return;
       }
 
       onSave();

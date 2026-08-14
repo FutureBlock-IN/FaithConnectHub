@@ -22,7 +22,9 @@ import type {
 
 import { getAdminDb } from "./firebase-admin";
 import { db } from "./firebase";
-import { filterRecordsByChurch } from "./church-scope";
+import type { TenantScope } from "./organization/tenant-scope";
+import { fetchTenantCollection } from "./tenant-content-server";
+import { mergeTenantFieldsIntoPayload } from "./organization/resolve-tenant-scope";
 import {
   isRecoverableAdminError,
   wrapFirebaseError,
@@ -39,58 +41,23 @@ function normalizeArticle(
   return normalizeArticleFromFirestore(id, data);
 }
 
-async function fetchAllArticles(): Promise<FirebaseArticle[]> {
-  const adminDb = getAdminDb();
-
-  if (adminDb) {
-    try {
-      const snapshot = await adminDb
-        .collection(ARTICLES_COLLECTION)
-        .orderBy("dateCreated", "desc")
-        .get();
-
-      return snapshot.docs.map((docSnap) =>
-        normalizeArticle(docSnap.id, docSnap.data() as Record<string, unknown>)
-      );
-    } catch (error) {
-      if (!isRecoverableAdminError(error)) {
-        wrapFirebaseError(error);
-      }
-      console.warn("[Firebase] Admin SDK unavailable, using client SDK:", error);
-    }
-  }
-
-  try {
-    const q = query(
-      collection(db, ARTICLES_COLLECTION),
-      orderBy("dateCreated", "desc")
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnap) =>
-      normalizeArticle(docSnap.id, docSnap.data() as Record<string, unknown>)
-    );
-  } catch (error) {
-    try {
-      const snapshot = await getDocs(collection(db, ARTICLES_COLLECTION));
-      return snapshot.docs
-        .map((docSnap) =>
-          normalizeArticle(docSnap.id, docSnap.data() as Record<string, unknown>)
-        )
-        .sort((a, b) => b.dateCreated - a.dateCreated);
-    } catch (innerError) {
-      wrapFirebaseError(innerError);
-    }
-  }
+async function fetchAllArticlesForScope(
+  scope: TenantScope
+): Promise<FirebaseArticle[]> {
+  return fetchTenantCollection(ARTICLES_COLLECTION, scope, normalizeArticle, {
+    orderField: "dateCreated",
+    defaultBranchId: scope.branchId ?? null,
+  });
 }
 
-export async function getArticles(churchId: string): Promise<FirebaseArticle[]> {
-  return filterRecordsByChurch(await fetchAllArticles(), churchId);
+export async function getArticles(scope: TenantScope): Promise<FirebaseArticle[]> {
+  return fetchAllArticlesForScope(scope);
 }
 
 export async function getPublishedArticles(
-  churchId: string
+  scope: TenantScope
 ): Promise<FirebaseArticle[]> {
-  const articles = filterRecordsByChurch(await fetchAllArticles(), churchId);
+  const articles = await fetchAllArticlesForScope(scope);
   return articles.filter((a) => a.isPublished);
 }
 
@@ -134,13 +101,13 @@ export async function getArticleById(
 }
 
 export async function searchArticles(
-  churchId: string,
+  scope: TenantScope,
   searchQuery: string
 ): Promise<FirebaseArticle[]> {
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const articles = await getPublishedArticles(churchId);
+  const articles = await getPublishedArticles(scope);
   return articles.filter((article) => {
     const haystack = [
       article.title,
@@ -160,8 +127,12 @@ export async function createArticle(
   articleData: CreateArticleInput
 ): Promise<string> {
   const adminDb = getAdminDb();
+  const scopedPayload = await mergeTenantFieldsIntoPayload(
+    articleData as Record<string, unknown>,
+    articleData.churchId
+  );
   const payload = {
-    ...articleData,
+    ...scopedPayload,
     dateCreated: FieldValue.serverTimestamp(),
   };
 
@@ -178,8 +149,12 @@ export async function createArticle(
   }
 
   try {
+    const clientPayload = await mergeTenantFieldsIntoPayload(
+      articleData as Record<string, unknown>,
+      articleData.churchId
+    );
     const docRef = await addDoc(collection(db, ARTICLES_COLLECTION), {
-      ...articleData,
+      ...clientPayload,
       dateCreated: Timestamp.now(),
     });
     return docRef.id;

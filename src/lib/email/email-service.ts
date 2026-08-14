@@ -7,6 +7,7 @@ import { DonationCampaignEmail } from "@/emails/templates/donation-campaign-emai
 import { DonationThankYouEmail } from "@/emails/templates/donation-thank-you-email";
 import { EventAnnouncementEmail } from "@/emails/templates/event-announcement-email";
 import { EventRegistrationEmail } from "@/emails/templates/event-registration-email";
+import { MembershipApprovedEmail } from "@/emails/templates/membership-approved-email";
 import { PrayerApprovedEmail } from "@/emails/templates/prayer-approved-email";
 import { PrayerConfirmationEmail } from "@/emails/templates/prayer-confirmation-email";
 import { SermonPublishedEmail } from "@/emails/templates/sermon-published-email";
@@ -35,6 +36,22 @@ export const EmailService = {
       to: input.to,
       subject: `Welcome to ${emailConfig.appName}`,
       react: WelcomeEmail({ userName }),
+    });
+  },
+
+  async sendMembershipApproved(input: {
+    to: string;
+    userName: string;
+    churchName: string;
+    userId?: string;
+  }): Promise<SendEmailResult> {
+    return sendEmail({
+      to: input.to,
+      subject: `Welcome to ${input.churchName}`,
+      react: MembershipApprovedEmail({
+        userName: input.userName,
+        churchName: input.churchName,
+      }),
     });
   },
 

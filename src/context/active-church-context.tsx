@@ -10,6 +10,7 @@ import {
 } from "@/lib/church-cookies";
 import { getLegacyDefaultChurchId } from "@/lib/church-scope";
 import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
+import { useFirebaseAuth } from "@/context/firebase-auth-context";
 
 type ActiveChurchContextValue = {
   churches: FirebaseChurch[];
@@ -92,12 +93,16 @@ export function ActiveChurchProvider({
 
   React.useEffect(() => {
     if (!MULTI_CHURCH_ENABLED) {
-      setIsLoading(false);
+      if (initialChurches.length === 0) {
+        void refreshChurches();
+      } else {
+        setIsLoading(false);
+      }
       return;
     }
 
     void refreshChurches();
-  }, [refreshChurches]);
+  }, [refreshChurches, initialChurches.length]);
 
   React.useEffect(() => {
     if (!MULTI_CHURCH_ENABLED) return;
@@ -155,18 +160,32 @@ export function useActiveChurchScope(): {
   isLoading: boolean;
 } {
   const { activeChurchId, isLoading } = useActiveChurch();
+  const { profile, loading: authLoading } = useFirebaseAuth();
   const legacyId = getLegacyDefaultChurchId();
 
   return React.useMemo(() => {
+    const profileChurchId = profile?.churchId?.trim() || "";
+    const resolved =
+      profileChurchId || activeChurchId?.trim() || legacyId || "";
+
     if (!MULTI_CHURCH_ENABLED) {
-      return { churchId: "", isLoading: false };
+      return {
+        churchId: resolved,
+        isLoading: (authLoading || isLoading) && !resolved,
+      };
     }
 
     return {
       churchId: activeChurchId || legacyId || "",
       isLoading: isLoading && !(activeChurchId || legacyId),
     };
-  }, [activeChurchId, isLoading, legacyId]);
+  }, [
+    activeChurchId,
+    isLoading,
+    legacyId,
+    profile?.churchId,
+    authLoading,
+  ]);
 }
 
 export function useRequiredActiveChurchId(): string {

@@ -55,6 +55,8 @@ export function normalizeDonationCampaignFromFirestore(
   return {
     id,
     churchId: resolveDocumentChurchId(data),
+    organizationId: String(data.organizationId ?? "").trim() || undefined,
+    branchId: String(data.branchId ?? "").trim() || null,
     title: String(data.title ?? "").trim(),
     description: String(data.description ?? "").trim(),
     bannerImage: String(data.bannerImage ?? "").trim() || undefined,
@@ -74,6 +76,8 @@ export function normalizeDonationFromFirestore(
   return {
     id,
     churchId: resolveDocumentChurchId(data),
+    organizationId: String(data.organizationId ?? "").trim() || undefined,
+    branchId: String(data.branchId ?? "").trim() || null,
     campaignId: String(data.campaignId ?? "").trim(),
     donorName: String(data.donorName ?? "").trim(),
     donorEmail: String(data.donorEmail ?? "").trim(),

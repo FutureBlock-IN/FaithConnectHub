@@ -6,6 +6,7 @@ import { CalendarDays, Clock3, MapPin } from "lucide-react";
 import type { FirebaseEvent } from "@/types/firebase-event";
 
 import { ImageWithFallback } from "@/components/image-with-fallback";
+import { FavoriteButton } from "@/components/favorites/favorite-button";
 import { Badge } from "@/components/ui/badge";
 import { DEFAULT_SONG_COVER } from "@/config/site";
 import { formatEventDate } from "@/lib/event-firestore";
@@ -37,11 +38,16 @@ export function EventCard({ event, className }: EventCardProps) {
           alt={event.title}
           className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
-        <div className="absolute left-3 top-3">
+        <div className="absolute left-3 top-3 z-20 flex items-start gap-2">
           <Badge className="rounded-md border-0 bg-background/85 px-2 py-0.5 text-[10px] font-medium text-foreground shadow-sm backdrop-blur-sm">
             {event.eventType}
           </Badge>
         </div>
+        <FavoriteButton
+          itemType="event"
+          itemId={event.id}
+          className="absolute right-3 top-3 z-20"
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-4">

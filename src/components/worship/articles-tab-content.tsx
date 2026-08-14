@@ -10,6 +10,7 @@ import { ContentListToolbar } from "@/components/worship/content-list-toolbar";
 import { worshipContentGridClassName } from "@/components/worship/worship-card-styles";
 import { TabEmptyState } from "@/components/worship/songs-tab-content";
 import { WorshipGridSkeleton } from "@/components/skeletons/worship-grid-skeleton";
+import { ContentLoadMore } from "@/components/ui/content-load-more";
 import { useRealtimeArticles } from "@/hooks/use-worship-realtime";
 
 type ArticlesTabContentProps = {
@@ -17,7 +18,8 @@ type ArticlesTabContentProps = {
 };
 
 export function ArticlesTabContent({ initialArticles }: ArticlesTabContentProps) {
-  const { data: liveArticles, syncing } = useRealtimeArticles(initialArticles);
+  const { data: liveArticles, syncing, loadMore, hasMore, loadingMore } =
+    useRealtimeArticles(initialArticles);
   const articles = useMemo(
     () => liveArticles.filter((article) => article.isPublished),
     [liveArticles]
@@ -62,6 +64,12 @@ export function ArticlesTabContent({ initialArticles }: ArticlesTabContentProps)
           ))}
         </div>
       }
+
+      <ContentLoadMore
+        hasMore={hasMore}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   );
 }

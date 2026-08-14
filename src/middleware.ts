@@ -1,26 +1,19 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import type { NextRequest } from "next/server";
-
-import { isAdminRoute } from "@/lib/admin-access";
-import {
-  AUTH_ADMIN_COOKIE_NAME as ADMIN_COOKIE,
-  AUTH_COOKIE_NAME as AUTH_COOKIE,
-} from "@/lib/auth-cookies";
+import { AUTH_COOKIE_NAME as AUTH_COOKIE } from "@/lib/auth-cookies";
+import { isOnboardingPath } from "@/lib/auth/auth-paths";
+import { isWorkspaceRoute } from "@/lib/dashboard-routes";
 
 const AUTH_ONLY_PATHS = ["/signin", "/signup", "/forgot-password"];
 
-/**
- * Public browse pages for worship content. Detail routes under these prefixes
- * still require authentication.
- */
 const PUBLIC_CONTENT_LIST_PATHS = ["/songs", "/sermons", "/articles"];
 
 const PROTECTED_PREFIXES = [
   "/profile",
   "/favorites",
   "/groups",
-  "/dashboard",
+  "/profile/dashboard",
 ];
 
 const PROTECTED_CONTENT_DETAIL_PREFIXES = ["/songs", "/sermons", "/articles"];
@@ -31,10 +24,6 @@ function isPathMatch(pathname: string, paths: string[]) {
   );
 }
 
-/**
- * Prayer requests list/preview (`/prayer-requests`) stays public, but every
- * sub-route — detail (`/prayer-requests/[id]`) and submit — requires auth.
- */
 function isProtectedPath(pathname: string) {
   if (PUBLIC_CONTENT_LIST_PATHS.includes(pathname)) return false;
 
@@ -51,44 +40,50 @@ function isProtectedPath(pathname: string) {
   return false;
 }
 
+function buildSignInUrl(req: NextRequest, callbackPath: string) {
+  const signInUrl = new URL("/signin", req.url);
+  signInUrl.searchParams.set("callbackUrl", callbackPath);
+  return signInUrl;
+}
+
+/**
+ * Middleware performs auth-only checks. Onboarding completion and workspace access
+ * are enforced client-side from Firestore via OnboardingGuard and RequireWorkspaceAccess.
+ * Cookie hints may accelerate redirects but are never authoritative.
+ */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isAuthenticated = req.cookies.has(AUTH_COOKIE);
-  const isAdmin = req.cookies.has(ADMIN_COOKIE);
 
-  // Redirect authenticated users away from auth pages
-  if (AUTH_ONLY_PATHS.some((path) => pathname === path)) {
-    if (isAuthenticated) {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-    return NextResponse.next();
-  }
-
-  // Admin-only routes (temporary email-based access via cookie)
-  if (isAdminRoute(pathname)) {
+  if (isOnboardingPath(pathname)) {
     if (!isAuthenticated) {
-      const signInUrl = new URL("/signin", req.url);
-      signInUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(signInUrl);
-    }
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL("/", req.url));
+      return NextResponse.redirect(buildSignInUrl(req, pathname));
     }
     return NextResponse.next();
   }
 
-  // Protected routes — redirect to /signin if not authenticated, preserving
-  // the intended destination so login can return the user to it.
+  if (AUTH_ONLY_PATHS.some((path) => pathname === path)) {
+    return NextResponse.next();
+  }
+
+  if (isWorkspaceRoute(pathname)) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(
+        buildSignInUrl(req, `${pathname}${req.nextUrl.search}`)
+      );
+    }
+    return NextResponse.next();
+  }
+
   if (isProtectedPath(pathname)) {
     if (!isAuthenticated) {
-      const signInUrl = new URL("/signin", req.url);
-      signInUrl.searchParams.set("callbackUrl", `${pathname}${req.nextUrl.search}`);
-      return NextResponse.redirect(signInUrl);
+      return NextResponse.redirect(
+        buildSignInUrl(req, `${pathname}${req.nextUrl.search}`)
+      );
     }
     return NextResponse.next();
   }
 
-  // Public routes and everything else (home, search, previews, list pages)
   return NextResponse.next();
 }
 

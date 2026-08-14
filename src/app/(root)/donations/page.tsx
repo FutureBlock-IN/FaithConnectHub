@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { DonationsListClient } from "@/components/donations/donations-list-client";
 import { DonationsAdminBar } from "@/components/admin/inline/donations-admin-bar";
-import { getPageChurchContext } from "@/lib/church-page-data";
+import { getPageTenantContext } from "@/lib/church-page-data";
 import { getActiveDonationCampaignsCached } from "@/lib/cached-donation-data";
 import { pageContentClass, typePageTitleClass } from "@/lib/responsive-classes";
 import { buildPageMetadata } from "@/lib/seo";
@@ -18,8 +18,8 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function DonationsPage() {
-  const { churchId } = await getPageChurchContext();
-  const campaigns = await getActiveDonationCampaignsCached(churchId);
+  const { scope } = await getPageTenantContext();
+  const campaigns = await getActiveDonationCampaignsCached(scope);
 
   return (
     <section
@@ -38,7 +38,7 @@ export default async function DonationsPage() {
             Support active ministry campaigns with secure, transparent giving.
           </p>
         </div>
-        <DonationsAdminBar churchId={churchId} />
+        <DonationsAdminBar churchId={scope.churchId ?? ""} />
       </header>
 
       <DonationsListClient initialCampaigns={campaigns} />

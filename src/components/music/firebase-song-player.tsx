@@ -54,26 +54,15 @@ export function FirebaseSongPlayer({ audioUrl, title }: FirebaseSongPlayerProps)
         ref={audioRef}
         src={audioUrl}
         preload="metadata"
-        onLoadedMetadata={(e) => {
-          console.log("[Player] Audio metadata loaded:", {
-            title,
-            duration: e.currentTarget.duration,
-          });
-          setDuration(e.currentTarget.duration);
+        onLoadedMetadata={(e) => {          setDuration(e.currentTarget.duration);
           setIsLoading(false);
         }}
         onTimeUpdate={(e) => setPos(e.currentTarget.currentTime)}
-        onEnded={() => {
-          console.log("[Player] Audio playback ended:", title);
-          setPlaying(false);
+        onEnded={() => {          setPlaying(false);
         }}
-        onWaiting={() => {
-          console.log("[Player] Audio buffering:", title);
-          setIsLoading(true);
+        onWaiting={() => {          setIsLoading(true);
         }}
-        onCanPlay={() => {
-          console.log("[Player] Audio ready to play:", title);
-          setIsLoading(false);
+        onCanPlay={() => {          setIsLoading(false);
         }}
         onError={(e) => {
           const error = e.currentTarget.error;

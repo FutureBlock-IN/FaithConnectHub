@@ -8,7 +8,9 @@ import {
   type RankedContentInsight,
   type RecentUserRow,
 } from "@/lib/admin-analytics-utils";
-import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
+import { BRANCH_MEMBERSHIPS_COLLECTION } from "@/lib/organization/branch-membership-firestore";
+import { MEMBERSHIPS_COLLECTION } from "@/lib/organization/membership-firestore";
+import { toMillis } from "@/lib/firebase-utils";
 import { FAVORITES_COLLECTION } from "@/lib/favorite-firestore";
 import { RECENTLY_VIEWED_COLLECTION } from "@/lib/recently-viewed-firestore";
 
@@ -41,7 +43,7 @@ async function loadChurchContentItems(
   articles: AnalyticsContentItem[];
 }> {
   const scopedChurchId =
-    MULTI_CHURCH_ENABLED ? churchScope?.trim() || null : null;
+    churchScope?.trim() || null;
   const songs: AnalyticsContentItem[] = [];
   const sermons: AnalyticsContentItem[] = [];
   const articles: AnalyticsContentItem[] = [];
@@ -93,12 +95,81 @@ async function loadChurchContentItems(
   return { songs, sermons, articles };
 }
 
+function mapUserRow(
+  id: string,
+  data: Record<string, unknown>
+): RecentUserRow {
+  const firstName = String(data.firstName ?? "").trim();
+  const lastName = String(data.lastName ?? "").trim();
+  const name = [firstName, lastName].filter(Boolean).join(" ") || "Member";
+
+  return {
+    id,
+    name,
+    email: String(data.email ?? "").trim(),
+    createdAt: normalizeUserCreatedAt(data.createdAt),
+  };
+}
+
+async function loadOrganizationUsers(
+  adminDb: Firestore,
+  organizationId: string
+): Promise<{ recentUsers: RecentUserRow[]; userCount: number }> {
+  const [membershipSnap, branchMembershipSnap] = await Promise.all([
+    adminDb
+      .collection(MEMBERSHIPS_COLLECTION)
+      .where("organizationId", "==", organizationId)
+      .where("status", "==", "active")
+      .get(),
+    adminDb
+      .collection(BRANCH_MEMBERSHIPS_COLLECTION)
+      .where("organizationId", "==", organizationId)
+      .where("status", "==", "active")
+      .get(),
+  ]);
+
+  const userIds = new Set<string>();
+  for (const docSnap of membershipSnap.docs) {
+    const userId = String(docSnap.data().userId ?? "").trim();
+    if (userId) userIds.add(userId);
+  }
+  for (const docSnap of branchMembershipSnap.docs) {
+    const userId = String(docSnap.data().userId ?? "").trim();
+    if (userId) userIds.add(userId);
+  }
+
+  const userRows = await Promise.all(
+    [...userIds].map(async (userId) => {
+      const userSnap = await adminDb.collection("users").doc(userId).get();
+      if (!userSnap.exists) return null;
+      const data = userSnap.data() as Record<string, unknown>;
+      return {
+        row: mapUserRow(userSnap.id, data),
+        createdAtMs: toMillis(data.createdAt),
+      };
+    })
+  );
+
+  const deduped = userRows
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+
+  return {
+    recentUsers: deduped.slice(0, 8).map((entry) => entry.row),
+    userCount: deduped.length,
+  };
+}
+
 async function loadScopedUsers(
   adminDb: Firestore,
-  churchScope: string | null
+  churchScope: string | null,
+  organizationScope?: string | null
 ): Promise<{ recentUsers: RecentUserRow[]; userCount: number }> {
-  const scopedChurchId =
-    MULTI_CHURCH_ENABLED ? churchScope?.trim() || null : null;
+  if (organizationScope?.trim()) {
+    return loadOrganizationUsers(adminDb, organizationScope.trim());
+  }
+
+  const scopedChurchId = churchScope?.trim() || null;
 
   const usersQuery = scopedChurchId
     ? adminDb
@@ -109,19 +180,14 @@ async function loadScopedUsers(
     : adminDb.collection("users").orderBy("createdAt", "desc").limit(8);
 
   const usersSnap = await usersQuery.get();
-  const recentUsers = usersSnap.docs.map((docSnap) => {
-    const data = docSnap.data();
-    const firstName = String(data.firstName ?? "").trim();
-    const lastName = String(data.lastName ?? "").trim();
-    const name = [firstName, lastName].filter(Boolean).join(" ") || "Member";
+  const seen = new Set<string>();
+  const recentUsers: RecentUserRow[] = [];
 
-    return {
-      id: docSnap.id,
-      name,
-      email: String(data.email ?? "").trim(),
-      createdAt: normalizeUserCreatedAt(data.createdAt),
-    };
-  });
+  for (const docSnap of usersSnap.docs) {
+    if (seen.has(docSnap.id)) continue;
+    seen.add(docSnap.id);
+    recentUsers.push(mapUserRow(docSnap.id, docSnap.data() as Record<string, unknown>));
+  }
 
   const countQuery = scopedChurchId
     ? adminDb.collection("users").where("churchId", "==", scopedChurchId)
@@ -137,14 +203,15 @@ async function loadScopedUsers(
 
 export async function loadAdminAnalyticsInsights(
   adminDb: Firestore,
-  churchScope: string | null
+  churchScope: string | null,
+  organizationScope?: string | null
 ): Promise<AdminInsightsPayload> {
   const [{ songs, sermons, articles }, favoritesSnap, recentlyViewedSnap, users] =
     await Promise.all([
       loadChurchContentItems(adminDb, churchScope),
       adminDb.collection(FAVORITES_COLLECTION).get(),
       adminDb.collection(RECENTLY_VIEWED_COLLECTION).get(),
-      loadScopedUsers(adminDb, churchScope),
+      loadScopedUsers(adminDb, churchScope, organizationScope),
     ]);
 
   const allowedSongIds = new Set(songs.map((item) => item.id));

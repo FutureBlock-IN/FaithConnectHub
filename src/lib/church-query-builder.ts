@@ -9,22 +9,21 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 
-import { MULTI_CHURCH_ENABLED } from "./feature-flags";
-
-/** Client SDK — church-scoped ordered query. */
+/** Client SDK — church-scoped ordered query (always filters when churchId is set). */
 export function buildChurchScopedQuery(
   col: CollectionReference<DocumentData>,
   churchId: string,
   orderField: string,
   direction: "asc" | "desc" = "desc"
 ): Query<DocumentData> {
-  if (!MULTI_CHURCH_ENABLED || !churchId.trim()) {
+  const scopedId = churchId.trim();
+  if (!scopedId) {
     return query(col, orderBy(orderField, direction));
   }
 
   return query(
     col,
-    where("churchId", "==", churchId),
+    where("churchId", "==", scopedId),
     orderBy(orderField, direction)
   );
 }
@@ -36,9 +35,10 @@ export function buildClientScopedQuery(
   ...constraints: QueryConstraint[]
 ): Query<DocumentData> {
   const allConstraints: QueryConstraint[] = [];
+  const scopedId = churchId?.trim();
 
-  if (MULTI_CHURCH_ENABLED && churchId) {
-    allConstraints.push(where("churchId", "==", churchId));
+  if (scopedId) {
+    allConstraints.push(where("churchId", "==", scopedId));
   }
 
   allConstraints.push(...constraints);
@@ -54,13 +54,14 @@ export function buildAdminChurchScopedQuery(
   direction: "asc" | "desc" = "desc"
 ) {
   const collectionRef = adminDb.collection(collectionName);
+  const scopedId = churchId.trim();
 
-  if (!MULTI_CHURCH_ENABLED || !churchId.trim()) {
+  if (!scopedId) {
     return collectionRef.orderBy(orderField, direction);
   }
 
   return collectionRef
-    .where("churchId", "==", churchId)
+    .where("churchId", "==", scopedId)
     .orderBy(orderField, direction);
 }
 

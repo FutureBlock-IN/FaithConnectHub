@@ -24,6 +24,8 @@ import {
   normalizeEventFromFirestore,
   splitEventsBySchedule,
 } from "./event-firestore";
+import type { TenantScope } from "./organization/tenant-scope";
+import { fetchTenantCollection } from "./tenant-content-server";
 import { filterRecordsByChurch } from "./church-scope";
 
 async function fetchEventsAdmin(): Promise<FirebaseEvent[]> {
@@ -190,38 +192,44 @@ async function fetchPublishedEvents(): Promise<FirebaseEvent[]> {
   }
 }
 
-export async function getEvents(churchId: string): Promise<FirebaseEvent[]> {
-  return filterRecordsByChurch(await fetchAllEvents(), churchId);
+export async function getEvents(scope: TenantScope): Promise<FirebaseEvent[]> {
+  return fetchTenantCollection(
+    EVENTS_COLLECTION,
+    scope,
+    (id, data) => normalizeEventFromFirestore(id, data),
+    { orderField: "eventDate", defaultBranchId: scope.branchId ?? null }
+  );
 }
 
 export async function getPublishedEvents(
-  churchId: string
+  scope: TenantScope
 ): Promise<FirebaseEvent[]> {
-  return filterRecordsByChurch(await fetchPublishedEvents(), churchId);
+  const events = await getEvents(scope);
+  return filterPublishedEvents(events);
 }
 
 export async function getUpcomingPublishedEvents(
-  churchId: string,
+  scope: TenantScope,
   limit = 3
 ): Promise<FirebaseEvent[]> {
-  const published = await getPublishedEvents(churchId);
+  const published = await getPublishedEvents(scope);
   const { upcoming } = splitEventsBySchedule(filterPublishedEvents(published));
   return upcoming.slice(0, limit);
 }
 
-export async function getPublishedEventsGrouped(churchId: string) {
-  const published = filterPublishedEvents(await getPublishedEvents(churchId));
+export async function getPublishedEventsGrouped(scope: TenantScope) {
+  const published = filterPublishedEvents(await getPublishedEvents(scope));
   return splitEventsBySchedule(published);
 }
 
 export async function searchEvents(
-  churchId: string,
+  scope: TenantScope,
   searchQuery: string
 ): Promise<FirebaseEvent[]> {
   const normalized = searchQuery.trim().toLowerCase();
   if (!normalized) return [];
 
-  const events = await getPublishedEvents(churchId);
+  const events = await getPublishedEvents(scope);
   return events.filter((event) => {
     const haystack = [
       event.title,

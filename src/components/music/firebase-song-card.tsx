@@ -5,6 +5,7 @@ import { Pause, Play } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { ProtectedContentLink } from "@/components/auth/protected-content-link";
+import { AdminQuickEditButton } from "@/components/admin/admin-quick-edit-button";
 import { FavoriteButton } from "@/components/favorites/favorite-button";
 import type { FirebaseSong } from "@/types/firebase-song";
 import { ImageWithFallback } from "@/components/image-with-fallback";
@@ -152,6 +153,12 @@ export const FirebaseSongCard = React.memo(function FirebaseSongCard({
           itemType="song"
           itemId={song.id}
           className="absolute left-2 top-2 z-20"
+        />
+
+        <AdminQuickEditButton
+          href={`/dashboard/content?tab=songs&edit=${encodeURIComponent(song.id)}`}
+          label="Edit song"
+          className="absolute right-2 top-2 z-20 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
         />
       </div>
 

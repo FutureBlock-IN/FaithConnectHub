@@ -46,13 +46,10 @@ export function filterRecordsByChurch<T extends { churchId?: string }>(
   records: T[],
   churchId: string
 ): T[] {
-  if (!MULTI_CHURCH_ENABLED || !churchId.trim()) return records;
+  const scopedId = churchId.trim();
+  if (!scopedId) return records;
 
-  const legacyId = getLegacyDefaultChurchId();
-  return records.filter((record) => {
-    const recordChurchId = record.churchId?.trim() || legacyId;
-    return recordChurchId === churchId;
-  });
+  return records.filter((record) => record.churchId?.trim() === scopedId);
 }
 
 export function slugifyChurchSlug(value: string): string {

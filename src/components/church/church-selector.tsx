@@ -3,6 +3,7 @@
 import { Building2, Check, ChevronsUpDown } from "lucide-react";
 
 import { useActiveChurch } from "@/context/active-church-context";
+import { useOrganizationOptional } from "@/context/organization-context";
 import { MULTI_CHURCH_ENABLED } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,14 +22,25 @@ type ChurchSelectorProps = {
 };
 
 export function ChurchSelector({ className, compact = false }: ChurchSelectorProps) {
-  const { churches, activeChurch, activeChurchId, setActiveChurchId } =
-    useActiveChurch();
+  const organization = useOrganizationOptional();
+  const {
+    churches: platformChurches,
+    activeChurch: platformActiveChurch,
+    activeChurchId,
+    setActiveChurchId,
+  } = useActiveChurch();
 
-  if (!MULTI_CHURCH_ENABLED) return null;
+  const churches =
+    organization?.churches.length ? organization.churches : platformChurches;
 
-  const activeChurches = churches.filter((church) => church.isActive);
+  const activeChurch =
+    churches.find((church) => church.id === activeChurchId) ?? platformActiveChurch;
 
-  if (activeChurches.length <= 1) {
+  const showSwitcher =
+    organization?.showChurchSwitcher ??
+    (MULTI_CHURCH_ENABLED && churches.filter((c) => c.isActive).length > 1);
+
+  if (!showSwitcher) {
     if (!activeChurch || compact) return null;
 
     return (
@@ -45,6 +57,8 @@ export function ChurchSelector({ className, compact = false }: ChurchSelectorPro
       </div>
     );
   }
+
+  const activeChurches = churches.filter((church) => church.isActive);
 
   return (
     <DropdownMenu>

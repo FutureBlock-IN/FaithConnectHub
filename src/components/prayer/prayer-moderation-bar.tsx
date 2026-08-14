@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useFirebaseAuth } from "@/context/firebase-auth-context";
 import { notifyIfPrayerApproved } from "@/lib/notify-if-published";
+import { useTenantNotifyFields } from "@/hooks/use-tenant-notify-fields";
 import {
   deletePrayerRequest,
   updatePrayerRequestStatus,
@@ -39,6 +40,7 @@ export function PrayerModerationBar({
   request: FirebasePrayerRequest;
 }) {
   const { user } = useFirebaseAuth();
+  const tenantFields = useTenantNotifyFields();
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -56,6 +58,8 @@ export function PrayerModerationBar({
         previousStatus: request.status,
         newStatus: status,
         idToken,
+        churchId: request.churchId || tenantFields.churchId,
+        organizationId: tenantFields.organizationId,
       });
       toast.success(
         status === "approved"
